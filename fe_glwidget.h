@@ -3,7 +3,7 @@
 
 #include <QGLWidget>
 
-class FE_FlowElement;
+class FE_Element;
 
 class FE_GLWidget : public QGLWidget
 {
@@ -11,8 +11,9 @@ class FE_GLWidget : public QGLWidget
 public:
     explicit FE_GLWidget(QWidget *parent = 0);
 
-	void setElems(QVector<FE_FlowElement*> elems);
+	void setElems(QVector<FE_Element*> elems);
 	void setIndices(QVector<QVector<int> > ind);
+	void paintGL();
 
 signals:
 
@@ -21,10 +22,10 @@ public slots:
 protected:
 	void initializeGL();
 	void resizeGL(int w, int h);
-	void paintGL();
+
 
 private:
-	QVector<FE_FlowElement*> elems;
+	QVector<FE_Element*> elems;
 	QVector<QVector<int> > ind;
 	int w;
 	int h;

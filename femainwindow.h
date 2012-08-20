@@ -11,6 +11,8 @@ class QGraphicsScene;
 class QGraphicsPixmapItem;
 class FE_GLWidget;
 class QPushButton;
+class FE_Element;
+class QArrowCue;
 
 class FEMainWindow : public QMainWindow
 {
@@ -25,16 +27,21 @@ public slots:
 	void saveFlowField();
 	void exportFlowmap();
 	void loadFlowField();
-	void newFile();
+	void newProject();
+	void newFlowField();
+	void newFlowFieldAndPreview();
 	void exportFlowmapFast();
 	void bigPreview(bool);
 	void expAndSwitch();
 	void exportFlowmapAkima();
-    void makeGrid();
+	void generateGrid();
+	void generateGradientGrid();
+	void selectGradientBrushColor();
 
 protected:
 	bool eventFilter(QObject *, QEvent *);
 	bool event(QEvent *);
+	int tool();
 
 private:
 	QImage generateFlowMap();
@@ -42,6 +49,8 @@ private:
 	void generatePreview();
 	void loadFlowField(const QString&);
 	QImage akimaGenerateFlowMap();
+	QImage nnGenerateFlowMap();
+	QVector<FE_Element*> elems();
 
 private:
     Ui::FEMainWindow *ui;
@@ -51,6 +60,10 @@ private:
     QPushButton *previewBtn;
     QPixmap origPixmap;
     QString exportFName;
+    QColor lastColor;
+    int lastWaveSize;
+    QColor m_GradientBrushColor;
+    QArrowCue *m_ArrowCue;
 };
 
 #endif // FEMAINWINDOW_H

@@ -6,154 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>614</width>
-    <height>415</height>
+    <width>724</width>
+    <height>537</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Flow Editor (C) Stanislaw Adaszewski, 2012, http://algoholic.eu</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <layout class="QHBoxLayout" name="horizontalLayout">
-    <item>
-     <layout class="QVBoxLayout" name="verticalLayout">
-      <item>
-       <widget class="QPushButton" name="previewBtn">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="checkable">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="fileBtn">
-        <property name="text">
-         <string>&amp;File</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="expAndSwitchBtn">
-        <property name="text">
-         <string>&amp;Repeat Last Export</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="makeGridBtn">
-        <property name="text">
-         <string>Make &amp;Grid</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QWidget" name="widget" native="true">
-        <layout class="QVBoxLayout" name="verticalLayout_2">
-         <item>
-          <widget class="QLabel" name="label">
-           <property name="text">
-            <string>Tool:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="indivBtn">
-           <property name="text">
-            <string>&amp;Individual</string>
-           </property>
-           <property name="checkable">
-            <bool>true</bool>
-           </property>
-           <property name="checked">
-            <bool>true</bool>
-           </property>
-           <property name="autoExclusive">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="brushBtn">
-           <property name="text">
-            <string>&amp;Brush</string>
-           </property>
-           <property name="checkable">
-            <bool>true</bool>
-           </property>
-           <property name="autoExclusive">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="eraserBtn">
-           <property name="text">
-            <string>&amp;Eraser</string>
-           </property>
-           <property name="checkable">
-            <bool>true</bool>
-           </property>
-           <property name="autoExclusive">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="label_2">
-           <property name="text">
-            <string>Brush size:</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QSlider" name="brushSizeSlider">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimum">
-            <number>1</number>
-           </property>
-           <property name="maximum">
-            <number>100</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="tickPosition">
-            <enum>QSlider::NoTicks</enum>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QCheckBox" name="brushOnceChkbx">
-           <property name="text">
-            <string>Brush once</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
-      <item>
-       <spacer name="verticalSpacer">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>40</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
-    </item>
+   <layout class="QHBoxLayout" name="horizontalLayout" stretch="1">
     <item>
      <widget class="QGraphicsView" name="graphicsView">
       <property name="alignment">
@@ -168,8 +29,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>614</width>
-     <height>21</height>
+     <width>724</width>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_File">
@@ -184,15 +45,499 @@
      <addaction name="actionExport_flow_map_AKIMA"/>
      <addaction name="action_Export_flow_map"/>
     </widget>
-    <addaction name="action_New"/>
-    <addaction name="action_Load_image"/>
-    <addaction name="action_Load_flow_field"/>
+    <widget class="QMenu" name="menu_New">
+     <property name="title">
+      <string>&amp;New</string>
+     </property>
+     <addaction name="action_Project"/>
+     <addaction name="action_Flow_field"/>
+     <addaction name="separator"/>
+     <addaction name="action_Generate_grid"/>
+     <addaction name="action_Generate_gradient_grid"/>
+    </widget>
+    <widget class="QMenu" name="menu_Load">
+     <property name="title">
+      <string>&amp;Load</string>
+     </property>
+     <addaction name="action_Load_image"/>
+     <addaction name="action_Load_flow_field"/>
+    </widget>
+    <addaction name="menu_New"/>
+    <addaction name="menu_Load"/>
     <addaction name="action_Save_flow_field"/>
     <addaction name="menuE_xport_flow_map"/>
     <addaction name="separator"/>
     <addaction name="action_Quit"/>
    </widget>
    <addaction name="menu_File"/>
+  </widget>
+  <widget class="QDockWidget" name="dockWidget">
+   <property name="features">
+    <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+   </property>
+   <property name="windowTitle">
+    <string>Menu</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents">
+    <layout class="QVBoxLayout" name="verticalLayout_3">
+     <item>
+      <widget class="QPushButton" name="previewBtn">
+       <property name="text">
+        <string/>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="fileBtn">
+       <property name="text">
+        <string>&amp;File</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="expAndSwitchBtn">
+       <property name="text">
+        <string>&amp;Repeat Last Export</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="autoGeneratePreview">
+       <property name="text">
+        <string>Auto preview</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  <widget class="QDockWidget" name="tools_dockWidget">
+   <property name="windowTitle">
+    <string>Tools</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="QWidget" name="dockWidgetContents_2">
+    <layout class="QVBoxLayout" name="verticalLayout_4">
+     <item>
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>Tool:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="tool_comboBox">
+       <item>
+        <property name="text">
+         <string>Flow points</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Gradient points</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Flow brush</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Gradient adjust</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Eraser</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Gradient brush</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Mark passive</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QStackedWidget" name="toolSettings_widget">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="currentIndex">
+        <number>6</number>
+       </property>
+       <widget class="QWidget" name="flowPoints_page"/>
+       <widget class="QWidget" name="gradientPoints_page"/>
+       <widget class="QWidget" name="flowBrush_page">
+        <layout class="QFormLayout" name="formLayout_2">
+         <property name="fieldGrowthPolicy">
+          <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+         </property>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_6">
+           <property name="text">
+            <string>Direction:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QDial" name="flowBrush_dial">
+           <property name="maximum">
+            <number>359</number>
+           </property>
+           <property name="value">
+            <number>180</number>
+           </property>
+           <property name="sliderPosition">
+            <number>180</number>
+           </property>
+           <property name="invertedAppearance">
+            <bool>true</bool>
+           </property>
+           <property name="invertedControls">
+            <bool>false</bool>
+           </property>
+           <property name="wrapping">
+            <bool>true</bool>
+           </property>
+           <property name="notchTarget">
+            <double>3.700000000000000</double>
+           </property>
+           <property name="notchesVisible">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_9">
+           <property name="text">
+            <string>Size:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QSpinBox" name="flowBrush_size">
+           <property name="maximum">
+            <number>255</number>
+           </property>
+           <property name="value">
+            <number>100</number>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>Magnitude:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QSpinBox" name="flowBrush_magnitude">
+           <property name="maximum">
+            <number>100</number>
+           </property>
+           <property name="value">
+            <number>100</number>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_8">
+           <property name="text">
+            <string>Strength:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QSpinBox" name="flowBrush_strength">
+           <property name="maximum">
+            <number>100</number>
+           </property>
+           <property name="value">
+            <number>10</number>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="gradientCloning_page">
+        <layout class="QFormLayout" name="formLayout">
+         <property name="fieldGrowthPolicy">
+          <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+         </property>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>Change:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QComboBox" name="gradClone_change_comboBox">
+           <item>
+            <property name="text">
+             <string>Absolute</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Relative</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_3">
+           <property name="text">
+            <string>Red:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QSpinBox" name="gradClone_red_spinBox">
+           <property name="minimum">
+            <number>-255</number>
+           </property>
+           <property name="maximum">
+            <number>255</number>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_4">
+           <property name="text">
+            <string>Green:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QSpinBox" name="gradClone_green_spinBox">
+           <property name="minimum">
+            <number>-255</number>
+           </property>
+           <property name="maximum">
+            <number>255</number>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_5">
+           <property name="text">
+            <string>Blue:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QSpinBox" name="gradClone_blue_spinBox">
+           <property name="minimum">
+            <number>-255</number>
+           </property>
+           <property name="maximum">
+            <number>255</number>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="QCheckBox" name="gradientAdjust_clone">
+           <property name="text">
+            <string>Clone</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="eraser_page">
+        <layout class="QFormLayout" name="formLayout_3">
+         <property name="fieldGrowthPolicy">
+          <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+         </property>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_10">
+           <property name="text">
+            <string>Size:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QSpinBox" name="eraser_size">
+           <property name="maximum">
+            <number>255</number>
+           </property>
+           <property name="value">
+            <number>100</number>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="gradientBrush_page">
+        <layout class="QVBoxLayout" name="verticalLayout_2">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_3">
+           <item>
+            <widget class="QLabel" name="label_11">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Size:</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="gradientBrush_size">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="maximum">
+              <number>255</number>
+             </property>
+             <property name="value">
+              <number>10</number>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_2">
+           <item>
+            <widget class="QLabel" name="label_12">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string>Color:</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QToolButton" name="gradientBrush_color">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <spacer name="verticalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="markPassive_page">
+        <layout class="QFormLayout" name="formLayout_4">
+         <property name="fieldGrowthPolicy">
+          <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+         </property>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_13">
+           <property name="text">
+            <string>Size:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QSpinBox" name="markPassive_size">
+           <property name="maximum">
+            <number>255</number>
+           </property>
+           <property name="value">
+            <number>10</number>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_14">
+           <property name="text">
+            <string>Mode:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QComboBox" name="markPassive_mode">
+           <item>
+            <property name="text">
+             <string>Set passive</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Set active</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>Flip</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+     </item>
+    </layout>
+   </widget>
   </widget>
   <action name="action_Load_image">
    <property name="text">
@@ -219,11 +564,6 @@
     <string>&amp;Quit</string>
    </property>
   </action>
-  <action name="action_New">
-   <property name="text">
-    <string>&amp;New</string>
-   </property>
-  </action>
   <action name="action_Export_flow_map_fast">
    <property name="text">
     <string>Linear Interpolation</string>
@@ -234,8 +574,45 @@
     <string>Cubic Interpolation</string>
    </property>
   </action>
+  <action name="action_Generate_grid">
+   <property name="text">
+    <string>&amp;Generate flow grid</string>
+   </property>
+  </action>
+  <action name="action_Flow_field">
+   <property name="text">
+    <string>&amp;Flow field</string>
+   </property>
+  </action>
+  <action name="action_Project">
+   <property name="text">
+    <string>&amp;Project</string>
+   </property>
+  </action>
+  <action name="action_Generate_gradient_grid">
+   <property name="text">
+    <string>Generate g&amp;radient grid</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>tool_comboBox</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>toolSettings_widget</receiver>
+   <slot>setCurrentIndex(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>153</x>
+     <y>149</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>153</x>
+     <y>224</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

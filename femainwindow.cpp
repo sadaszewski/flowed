@@ -12,14 +12,38 @@
 #include <QPushButton>
 #include <QWidgetAction>
 #include <QLabel>
+#include <QTimer>
+#include <QColorDialog>
 #include <QInputDialog>
-#include <QDateTime>
 
 #include <math.h>
 
+#include "fe_element.h"
 #include "fe_flowelement.h"
 #include "fe_flowelementhandle.h"
-#include "fe_glwidget.h"
+// #include "fe_glwidget.h"
+#include "fe_gradientelement.h"
+
+extern "C" {
+#include "nn.h"
+}
+
+#include "qarrowcue.h"
+
+void Draw_Gouraud_Triangle(QImage &image, /* int w, int h, int pitch, */
+			int x0, int y0, float r0, float g0, float b0,
+			      int x1, int y1, float r1, float g1, float b1,
+			      int x2, int y2, float r2, float g2, float b2);
+
+enum {
+	FlowElementsTool,
+	GradientElementsTool,
+	FlowBrushTool,
+	GradientCloningTool,
+	EraserTool,
+	GradientBrushTool,
+	MarkPassiveTool
+};
 
 FEMainWindow::FEMainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -29,15 +53,19 @@ FEMainWindow::FEMainWindow(QWidget *parent) :
     scene = new QGraphicsScene(ui->graphicsView);
     ui->graphicsView->setScene(scene);
     ui->graphicsView->scene()->installEventFilter(this);
-    ui->graphicsView->setRenderHint(QPainter::Antialiasing);
+    // ui->graphicsView->setRenderHint(QPainter::Antialiasing);
 
     connect(ui->action_Load_image, SIGNAL(triggered()), this, SLOT(loadImage()));
     connect(ui->action_Save_flow_field, SIGNAL(triggered()), this, SLOT(saveFlowField()));
     connect(ui->action_Export_flow_map, SIGNAL(triggered()), this, SLOT(exportFlowmap()));
     connect(ui->action_Load_flow_field, SIGNAL(triggered()), this, SLOT(loadFlowField()));
-    connect(ui->action_New, SIGNAL(triggered()), this, SLOT(newFile()));
+    connect(ui->action_Project, SIGNAL(triggered()), this, SLOT(newProject()));
+    connect(ui->action_Flow_field, SIGNAL(triggered()), this, SLOT(newFlowFieldAndPreview()));
     connect(ui->action_Quit, SIGNAL(triggered()), qApp, SLOT(quit()));
     connect(ui->action_Export_flow_map_fast, SIGNAL(triggered()), this, SLOT(exportFlowmapFast()));
+    connect(ui->action_Generate_grid, SIGNAL(triggered()), this, SLOT(generateGrid()));
+    connect(ui->action_Generate_gradient_grid, SIGNAL(triggered()), this, SLOT(generateGradientGrid()));
+    connect(ui->gradientBrush_color, SIGNAL(clicked()), this, SLOT(selectGradientBrushColor()));
 
     QString ss("padding-left: 30px; font-style: italic;");
     QWidgetAction *a = new QWidgetAction(ui->menuE_xport_flow_map);
@@ -59,12 +87,16 @@ FEMainWindow::FEMainWindow(QWidget *parent) :
     a->setDefaultWidget(w);
     ui->menuE_xport_flow_map->addAction(a);
 
-    image = new QGraphicsPixmapItem(0, scene);
+    // scene->addRect(0, 0, 100, 100, QPen(Qt::black), Qt::red);
+
+    image = new QGraphicsPixmapItem(0);
+    scene->addItem(image);
     image->setZValue(-2);
     // image->setOffset();
 
-    glwidget = new FE_GLWidget(this);
-    glwidget->setVisible(false);
+    // glwidget = new FE_GLWidget(0);
+    // glwidget->setVisible(true);
+    // glwidget->setGeometry(0, 0, 800, 600);
 
     previewBtn = ui->previewBtn;
     ui->fileBtn->setMenu(ui->menu_File);
@@ -73,7 +105,13 @@ FEMainWindow::FEMainWindow(QWidget *parent) :
     connect(previewBtn, SIGNAL(toggled(bool)), this, SLOT(bigPreview(bool)));
     connect(ui->expAndSwitchBtn, SIGNAL(clicked()), this, SLOT(expAndSwitch()));
     connect(ui->actionExport_flow_map_AKIMA, SIGNAL(triggered()), this, SLOT(exportFlowmapAkima()));
-    connect(ui->makeGridBtn, SIGNAL(clicked()), this, SLOT(makeGrid()));
+
+    lastColor = Qt::gray;
+    lastWaveSize = 0;
+
+    m_GradientBrushColor = Qt::gray;
+
+    m_ArrowCue = 0;
 }
 
 FEMainWindow::~FEMainWindow()
@@ -83,7 +121,7 @@ FEMainWindow::~FEMainWindow()
 
 void FEMainWindow::loadImage()
 {
-	QString fname = QFileDialog::getOpenFileName(this, "Select image", QString(), "Images (*.png; *.jpg)");
+	QString fname = QFileDialog::getOpenFileName(this, "Select image", QString(), "Images (*.png *.jpg)");
 	if (!fname.isEmpty()) {
 		image->setPixmap(QPixmap(fname));
 		QFileInfo fi(fname);
@@ -100,18 +138,32 @@ void FEMainWindow::saveFlowField()
 		QFile f(fname);
 		f.open(QFile::WriteOnly);
 		QDataStream ds(&f);
-		foreach (FE_FlowElement *fe, scene->findChildren<FE_FlowElement*>()) {
+		QList<FE_FlowElement*> flowElements = scene->findChildren<FE_FlowElement*>();
+		ds << flowElements.size();
+		foreach (FE_FlowElement *fe, flowElements) {
 			ds << fe->from();
 			ds << fe->to();
+			ds << fe->passive();
+		}
+		QList<QGraphicsItem*> gradientElements = scene->items();
+		for (QMutableListIterator<QGraphicsItem*> it(gradientElements); it.hasNext();) {
+			if (it.next()->type() != FE_GradientElement::Type)
+				it.remove();
+		}
+		ds << gradientElements.size();
+		foreach (QGraphicsItem *item, gradientElements) {
+			ds << item->pos();
+			ds << ((FE_GradientElement*) item)->color();
+			ds << ((FE_GradientElement*) item)->passive();
 		}
 	}
 }
 
 void FEMainWindow::exportFlowmap()
 {
-	QString fname = QFileDialog::getSaveFileName(this, "Save flowmap", QString(), "Images (*.png; *.jpg)");
+	QString fname = QFileDialog::getSaveFileName(this, "Save flowmap", QString(), "Images (*.png *.jpg)");
 	if (!fname.isEmpty()) {
-		QImage im(generateFlowMap());
+		QImage im(nnGenerateFlowMap());
 		im.save(fname);
 		exportFName = QString("%1;1").arg(fname);
 	}
@@ -126,23 +178,40 @@ void FEMainWindow::loadFlowField()
 
 void FEMainWindow::loadFlowField(const QString& fname)
 {
-	foreach (FE_FlowElement *fe, scene->findChildren<FE_FlowElement*>()) {
-		fe->removeFromScene();
-		delete fe;
-	}
+	newFlowField();
 
 	QFile f(fname);
 	f.open(QFile::ReadOnly);
 	QDataStream ds(&f);
-	while (!ds.atEnd()) {
+	int flowElementsCount;
+	ds >> flowElementsCount;
+	for (int i = 0; i < flowElementsCount; i++) {
 		QPointF from;
 		QPointF to;
+		bool passive;
 		ds >> from;
 		ds >> to;
+		ds >> passive;
 		FE_FlowElement *elem = new FE_FlowElement(scene);
 		elem->getHandleFrom()->setPos(from);
 		elem->getHandleTo()->setPos(to);
 		elem->onEndPositionChanged();
+		elem->setPassive(passive);
+	}
+	int gradientElementsCount;
+	ds >> gradientElementsCount;
+	for (int i = 0; i < gradientElementsCount; i++) {
+		QPointF pos;
+		QColor color;
+		bool passive;
+		ds >> pos;
+		ds >> color;
+		ds >> passive;
+		FE_GradientElement *elem = new FE_GradientElement();
+		scene->addItem(elem);
+		elem->setPos(pos);
+		elem->setColor(color);
+		elem->setPassive(passive);
 	}
 
 	generatePreview();
@@ -167,7 +236,7 @@ void sdsf3p_(int *MD, int *NDP, double *XD, double *YD, double *ZD, int *NXI,
 
 QImage FEMainWindow::akimaGenerateFlowMap()
 {
-	QVector<FE_FlowElement*> elems = scene->findChildren<FE_FlowElement*>().toVector();
+	QVector<FE_Element*> elems(this->elems());
 	if (elems.size() < 10) {
 		QMessageBox::warning(this, "AKIMA", "AKIMA Cubic Interpolation requires at least 10 points");
 		return QImage();
@@ -178,12 +247,14 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 	double *YD = new double[NDP];
 	double *ZD1 = new double[NDP];
 	double *ZD2 = new double[NDP];
+	double *ZD3 = new double[NDP];
 	int NXI = image->pixmap().width();
 	double *XI = new double[NXI];
 	int NYI = image->pixmap().height();
 	double *YI = new double[NYI];
 	double *ZI1 = new double[NXI*NYI]; // final output X
 	double *ZI2 = new double[NXI*NYI]; // final output Y
+	double *ZI3 = new double[NXI*NYI]; // final output Z
 	int IER;
 	double *WK = new double[NDP * 17];
 	int *IWK = new int[NDP * 25];
@@ -192,13 +263,12 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 	int *NEXT = new int[NDP];
 	double *DIST = new double[NDP];
 
-	memset(WK, 0, NDP * 17 * sizeof(double));
-	memset(IWK, 0, NDP * 25 * sizeof(int));
-	memset(EXTRPI, 0, NXI*NYI*sizeof(int));
-	memset(NEAR_, 0, NDP * sizeof(int));
-	memset(NEXT, 0, NDP * sizeof(int));
-	memset(DIST, 0, NDP * sizeof(double));
-
+//	memset(WK, 0, NDP * 17 * sizeof(double));
+//	memset(IWK, 0, NDP * 25 * sizeof(int));
+//	memset(EXTRPI, 0, NXI*NYI*sizeof(int));
+//	memset(NEAR_, 0, NDP * sizeof(int));
+//	memset(NEXT, 0, NDP * sizeof(int));
+//	memset(DIST, 0, NDP * sizeof(double));
 
 	for (int i = 0; i < NXI; i++)
 		XI[i] = i;
@@ -208,22 +278,31 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 	for(int i = 0; i < NDP; i++) {
 		XD[i] = elems[i]->pos().x();
 		YD[i] = elems[i]->pos().y();
-		QVector2D d(elems[i]->dir());
-		d.normalize();
-		ZD1[i] = d.x();
-		ZD2[i] = d.y();
+		QColor color(elems[i]->color());
+		ZD1[i] = color.red();
+		ZD2[i] = color.green();
+		ZD3[i] = color.blue();
 	}
 
 	sdsf3p_(&MD, &NDP, XD, YD, ZD1, &NXI, XI, &NYI, YI, ZI1, &IER, WK, IWK, EXTRPI, NEAR_, NEXT, DIST);
+
+//	memset(WK, 0, NDP * 17 * sizeof(double));
+//	memset(IWK, 0, NDP * 25 * sizeof(int));
+//	memset(EXTRPI, 0, NXI*NYI*sizeof(int));
+//	memset(NEAR_, 0, NDP * sizeof(int));
+//	memset(NEXT, 0, NDP * sizeof(int));
+//	memset(DIST, 0, NDP * sizeof(double));
+
 	sdsf3p_(&MD, &NDP, XD, YD, ZD2, &NXI, XI, &NYI, YI, ZI2, &IER, WK, IWK, EXTRPI, NEAR_, NEXT, DIST);
 
-	/* double max = 0;
-	for (int i = 0; i < NXI * NYI; i++) {
-		double t = ZI1[i]*ZI1[i]+ZI2[i]*ZI2[i+1];
-		if (t > max)
-			max = t;
-	}
-	max = sqrt(max); */
+//	memset(WK, 0, NDP * 17 * sizeof(double));
+//	memset(IWK, 0, NDP * 25 * sizeof(int));
+//	memset(EXTRPI, 0, NXI*NYI*sizeof(int));
+//	memset(NEAR_, 0, NDP * sizeof(int));
+//	memset(NEXT, 0, NDP * sizeof(int));
+//	memset(DIST, 0, NDP * sizeof(double));
+
+	sdsf3p_(&MD, &NDP, XD, YD, ZD3, &NXI, XI, &NYI, YI, ZI3, &IER, WK, IWK, EXTRPI, NEAR_, NEXT, DIST);
 
 	QImage im(NXI, NYI, QImage::Format_ARGB32);
 	uchar *data = im.bits();
@@ -232,26 +311,29 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 			int ofs1 = (y * NXI + x) * 4;
 			int ofs2 = y * NXI + x;
 
-			double x = /* ZI1[ofs2]; */ qMin(qMax(ZI1[ofs2], -1.0), 1.0);
-			double y = /* ZI2[ofs2]; */ qMin(qMax(ZI2[ofs2], -1.0), 1.0);
+			double red = qMin(qMax(ZI1[ofs2], 0.0), 255.0);
+			double green = qMin(qMax(ZI2[ofs2], 0.0), 255.0);
+			double blue = qMin(qMax(ZI3[ofs2], 0.0), 255.0);
 			// double l = sqrt(x*x+y*y);
 			// x /= l;
 			// y /= l;
 
 			data[ofs1 + 3] = 255;
-			data[ofs1 + 2] = (x + 1) * 255 / 2;
-			data[ofs1 + 1] = (y + 1) * 255 / 2;
-			data[ofs1 + 0] = 0;
+			data[ofs1 + 2] = red;
+			data[ofs1 + 1] = green;
+			data[ofs1 + 0] = blue;
 		}
 
 	delete [] XD;
 	delete [] YD;
 	delete [] ZD1;
 	delete [] ZD2;
+	delete [] ZD3;
 	delete [] XI;
 	delete [] YI;
 	delete [] ZI1;
 	delete [] ZI2;
+	delete [] ZI3;
 	delete [] WK;
 	delete [] IWK;
 	delete [] EXTRPI;
@@ -262,19 +344,117 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 	return im;
 }
 
-void FEMainWindow::newFile()
+QImage FEMainWindow::nnGenerateFlowMap()
+{
+	QVector<FE_Element*> elems(this->elems());
+	point *points = new point[elems.size()];
+	point *p = points;
+	double *zin = new double[elems.size()];
+	foreach (FE_Element *elem, elems) {
+		p->x = elem->pos().x();
+		p->y = elem->pos().y();
+		p->z = 0;
+		p++;
+	}
+	delaunay *d = delaunay_build(elems.size(), points, 0, 0, 0, 0);
+	int w = image->pixmap().width();
+	int h = image->pixmap().height();
+	int N = w * h;
+	double *x = new double[N];
+	double *y = new double[N];
+	double *red = new double[N];
+	double *green = new double[N];
+	double *blue = new double[N];
+	for (int yy = 0; yy < h; yy++) {
+		for (int xx = 0; xx < w; xx++) {
+			x[yy*w+xx] = xx;
+			y[yy*w+xx] = yy;
+		}
+	}
+
+	// nn_rule = NON_SIBSONIAN;
+	nnai *nn = nnai_build(d, N, x, y);
+	nnai_setwmin(nn, -INFINITY);
+
+	// red
+	for (int i = 0; i < elems.size(); i++) {
+		zin[i] = elems[i]->color().red();
+	}
+	nnai_interpolate(nn, zin, red);
+
+	// green
+	for (int i = 0; i < elems.size(); i++) {
+		zin[i] = elems[i]->color().green();
+	}
+	nnai_interpolate(nn, zin, green);
+
+	// blue
+	for (int i = 0; i < elems.size(); i++) {
+		zin[i] = elems[i]->color().blue();
+	}
+	nnai_interpolate(nn, zin, blue);
+
+#define CLAMP(v) ((v) < 0 ? 0 : ((v) > 255 ? 255 : (v)))
+
+	QColor cc(Qt::black);
+
+	QImage im(w, h, QImage::Format_ARGB32);
+	for (int yy = 0; yy < h; yy++) {
+		for (int xx = 0; xx < w; xx++) {
+			double r = red[yy*w + xx];
+			double g = green[yy*w + xx];
+			double  b = blue[yy*w + xx];
+			if (1){//isfinite(r) && isfinite(g) && isfinite(b)) {
+				QColor c(CLAMP(r), CLAMP(g), CLAMP(b), 255);
+				im.setPixel(xx, yy, c.rgb());
+				cc = c;
+			} else {
+				im.setPixel(xx, yy, cc.rgb());
+			}
+		}
+	}
+
+	delete[] points;
+	delete[] zin;
+	delete[] x;
+	delete[] y;
+	delete[] red;
+	delete[] green;
+	delete[] blue;
+
+	nnai_destroy(nn);
+	delaunay_destroy(d);
+
+	return im;
+}
+
+void FEMainWindow::newProject()
 {
 	image->setPixmap(QPixmap());
+	newFlowFieldAndPreview();
+}
+
+void FEMainWindow::newFlowField()
+{
 	foreach(FE_FlowElement *fe, scene->findChildren<FE_FlowElement*>()) {
 		fe->removeFromScene();
 		delete fe;
 	}
+	foreach(QGraphicsItem *item, scene->items()) {
+		if (item->type() == FE_GradientElement::Type)
+			delete item;
+	}
+}
+
+void FEMainWindow::newFlowFieldAndPreview()
+{
+	newFlowField();
 	generatePreview();
 }
 
 void FEMainWindow::exportFlowmapFast()
 {
-	QString fname = QFileDialog::getSaveFileName(this, "Save flowmap", QString(), "Images (*.png; *.jpg)");
+	QString fname = QFileDialog::getSaveFileName(this, "Save flowmap", QString(), "Images (*.png *.jpg)");
 	if (!fname.isEmpty()) {
 		QImage im(fastGenerateFlowMap().toImage());
 		im.save(fname);
@@ -311,7 +491,7 @@ void FEMainWindow::expAndSwitch()
 
 void FEMainWindow::exportFlowmapAkima()
 {
-	QString fname = QFileDialog::getSaveFileName(this, "Save flowmap", QString(), "Images (*.png; *.jpg)");
+	QString fname = QFileDialog::getSaveFileName(this, "Save flowmap", QString(), "Images (*.png *.jpg)");
 	if (!fname.isEmpty()) {
 		QImage im(akimaGenerateFlowMap());
 		im.save(fname);
@@ -319,103 +499,276 @@ void FEMainWindow::exportFlowmapAkima()
 	}
 }
 
-void FEMainWindow::makeGrid()
+void FEMainWindow::generateGrid()
 {
-    int cols = QInputDialog::getInt(this, "Make grid", "Number of columns");
-    int rows = QInputDialog::getInt(this, "Make grid", "Number of rows");
-    int dir_x = QInputDialog::getInt(this, "Make grid", "X direction");
-    int dir_y = QInputDialog::getInt(this, "Make grid", "Y direction");
-    int w = image->pixmap().width();
-    int h = image->pixmap().height();
+	bool ok;
+	int nCols = QInputDialog::getInt(this, "Number of columns", "Columns", 10, 1, 1000, 1, &ok);
+	if (!ok)
+		return;
+	int nRows = QInputDialog::getInt(this, "Number of rows", "Rows", 5, 1, 1000, 1, &ok);
+	if (!ok)
+		return;
+	int dirX = QInputDialog::getInt(this, "Horizontal direction", "Horizontal direction", 100, -100, 100, 1, &ok);
+	if (!ok)
+		return;
+	int dirY = QInputDialog::getInt(this, "Vertical direction", "Vertical direction", 100, -100, 100, 1, &ok);
+	if (!ok)
+		return;
+	int waveSize = QInputDialog::getInt(this, "Wave size", "Wave size", 0, 0, 255, 1, &ok);
+	if (!ok)
+		return;
 
-    for (int x = 0; x <= cols; x++) {
-        for (int y = 0; y <= rows; y++) {
-            FE_FlowElement *elem = new FE_FlowElement(scene);
-            for (int i = 0; i < 2; i++) {
-                elem->getHandleFrom()->setPos(((x == 0 && y == 0) ? -1 : 0) + x * w / cols - dir_x / 2, y * h / rows - dir_y / 2);
-                elem->getHandleTo()->setPos(x * w / cols + dir_x / 2, y * h / cols + dir_y / 2);
-            }
-            elem->onEndPositionChanged();
-        }
-    }
-    generatePreview();
+	float stepX = (float) image->pixmap().width() / nCols;
+	float stepY = (float) image->pixmap().height() / nRows;
+	float dx = dirX * 2 * FE_FlowElement::maxRadius() / 100.0f;
+	float dy = dirY * 2 * FE_FlowElement::maxRadius() / 100.0f;
+
+	for (int x = 0; x <= nCols; x++) {
+		for (int y = 0; y <= nRows; y++) {
+			FE_FlowElement *elem = new FE_FlowElement(scene);
+			elem->setFrom(QPointF(x * stepX, y * stepY));
+			elem->setTo(elem->from() + QPointF(dx, dy));
+			elem->setWaveSize(waveSize);
+		}
+	}
+}
+
+void FEMainWindow::generateGradientGrid()
+{
+	bool ok;
+	int nCols = QInputDialog::getInt(this, "Number of columns", "Columns", 10, 1, 1000, 1, &ok);
+	if (!ok)
+		return;
+	int nRows = QInputDialog::getInt(this, "Number of rows", "Rows", 5, 1, 1000, 1, &ok);
+	if (!ok)
+		return;
+	QColor c = QColorDialog::getColor(Qt::gray, this);
+	if (!c.isValid())
+		return;
+
+	float stepX = (float) image->pixmap().width() / nCols;
+	float stepY = (float) image->pixmap().height() / nRows;
+
+	for (int x = 0; x <= nCols; x++) {
+		for (int y = 0; y <= nRows; y++) {
+			FE_GradientElement *elem = new FE_GradientElement();
+			elem->setPos(QPointF(x * stepX, y * stepY));
+			elem->setColor(c);
+			scene->addItem(elem);
+		}
+	}
+}
+
+void FEMainWindow::selectGradientBrushColor()
+{
+	QColor c = QColorDialog::getColor(m_GradientBrushColor, this);
+	if (c.isValid()) {
+		m_GradientBrushColor = c;
+		ui->gradientBrush_color->setStyleSheet(QString("background-color: #%1%2%3").arg(c.red(), 2, 16, QChar('0')).arg(c.green(), 2, 16, QChar('0')).arg(c.blue(), 2, 16, QChar('0')));
+	}
 }
 
 bool FEMainWindow::eventFilter(QObject *o, QEvent *e)
 {
-    if (ui->indivBtn->isChecked()) {
-        if (e->type() == QEvent::GraphicsSceneMousePress) {
-            QGraphicsSceneMouseEvent *ge = (QGraphicsSceneMouseEvent*) e;
-            QGraphicsItem *item = scene->itemAt(ge->scenePos());
-            if (ge->button() == Qt::LeftButton && (item == 0 || (item->flags() & QGraphicsItem::ItemIsMovable) == 0)) {
-                FE_FlowElement *elem = new FE_FlowElement(scene);
-                elem->getHandleFrom()->setPos(ge->scenePos());
-                elem->getHandleTo()->setPos(ge->scenePos());
-                elem->getHandleFrom()->setPos(ge->scenePos());
-                elem->getHandleTo()->setPos(ge->scenePos());
-                elem->getHandleTo()->mousePressEvent(ge);
-                elem->onEndPositionChanged();
-                // generatePreview();
-            } else if (ge->button() == Qt::RightButton && item != 0 && item->type() == FE_FlowElementHandle::Type) {
-                FE_FlowElement *fe = ((FE_FlowElementHandle*) item)->flowElement();
-                fe->removeFromScene();
-                delete fe;
-                // generatePreview();
-            }
-        } else if (e->type() == QEvent::GraphicsSceneMouseRelease) {
-            generatePreview();
-        }
-    } else if (ui->brushBtn->isChecked() || ui->eraserBtn->isChecked()) {
-        static QPointF lastBrushPos, midBrushPos;
-//        static quint64 lastTimestamp;
-        if (e->type() == QEvent::GraphicsSceneMousePress) {
-            QGraphicsSceneMouseEvent *ge = (QGraphicsSceneMouseEvent*) e;
-            lastBrushPos = ge->scenePos();
-            midBrushPos = lastBrushPos;
-//            lastTimestamp = QDateTime::currentMSecsSinceEpoch();
-            foreach (FE_FlowElement *elem, scene->findChildren<FE_FlowElement*>()) {
-                elem->setAffectedByBrush(false);
-            }
-        } else if (e->type() == QEvent::GraphicsSceneMouseMove) {
-            QGraphicsSceneMouseEvent *ge = (QGraphicsSceneMouseEvent*) e;
-            if (ge->buttons() & Qt::LeftButton) {
-                int brushSizeSq = ui->brushSizeSlider->value();
-                bool affectOnce = ui->brushOnceChkbx->isChecked();
-                brushSizeSq *= brushSizeSq;
-                QVector2D v(ge->scenePos() - lastBrushPos);
-                // v.normalize();
-                foreach (FE_FlowElement *elem, scene->findChildren<FE_FlowElement*>()) {
-                    if (affectOnce && elem->isAffectedByBrush())
-                        continue;
-                    QPointF pos(elem->pos());
-                    if (QVector2D(pos - ge->scenePos()).lengthSquared() <= brushSizeSq) {
-                        if (ui->eraserBtn->isChecked()) {
-                            elem->removeFromScene();
-                            delete elem;
-                        } else {
-                            qreal radius(elem->radius());
-                            QPointF from(pos - v.normalized().toPointF() * radius);
-                            QPointF to(pos + v.normalized().toPointF() * radius);
-                            elem->setAffectedByBrush(true);
-                            elem->setFrom(from);
-                            elem->setTo(to);
-                        }
-                    }
-                }
-                if (v.lengthSquared() > 16*16)
-                    lastBrushPos = midBrushPos;
-                if (v.lengthSquared() > 8*8)
-                    midBrushPos = ge->scenePos();
-//                if (QDateTime::currentMSecsSinceEpoch() - lastTimestamp > 500) {
-//                    lastBrushPos = (4 * ge->scenePos() + lastBrushPos) / 5;
-//                    lastTimestamp = QDateTime::currentMSecsSinceEpoch();
-//                }
-            }
-            return true;
-        } else if (e->type() == QEvent::GraphicsSceneMouseRelease) {
-            generatePreview();
-        }
-    }
+	if (e->type() == QEvent::GraphicsSceneMousePress) {
+		QGraphicsSceneMouseEvent *ge = (QGraphicsSceneMouseEvent*) e;
+		QGraphicsItem *item = scene->itemAt(ge->scenePos());
+
+		if (ui->tools_dockWidget->isFloating())
+			ui->tools_dockWidget->hide();
+
+		if (ge->button() == Qt::LeftButton) {
+			if (ui->tool_comboBox->currentIndex() == GradientCloningTool && item && item->type() == FE_GradientElement::Type) {
+
+				FE_GradientElement *elem = (FE_GradientElement*) item;
+
+				QColor c(elem->color());
+				int r, g, b;
+				if (ui->gradClone_change_comboBox->currentIndex() == 0) { // absolute
+					r = g = b = 0;
+				} else {
+					r = c.red();
+					g = c.green();
+					b = c.blue();
+				}
+				r += ui->gradClone_red_spinBox->value();
+				g += ui->gradClone_green_spinBox->value();
+				b += ui->gradClone_blue_spinBox->value();
+
+				c.setRgb(qMin(qMax(r, 0), 255), qMin(qMax(g, 0), 255), qMin(qMax(b, 0), 255), 255);
+
+				if (ui->gradientAdjust_clone->isChecked()) {
+					FE_GradientElement *clone = new FE_GradientElement();
+					scene->addItem(clone);
+					clone->setPos(elem->pos());
+					clone->setColor(c);
+
+					m_ArrowCue = new QArrowCue();
+				} else {
+					elem->setColor(c);
+					return true;
+				}
+
+			} else if (item == 0 || (item->flags() & QGraphicsItem::ItemIsMovable) == 0) {
+
+				switch(ui->tool_comboBox->currentIndex()) {
+				case FlowElementsTool: {
+						FE_FlowElement *elem = new FE_FlowElement(scene);
+						elem->setWaveSize(lastWaveSize);
+						elem->getHandleFrom()->setPos(ge->scenePos());
+						elem->getHandleTo()->setPos(ge->scenePos());
+						elem->getHandleFrom()->setPos(ge->scenePos());
+						elem->getHandleTo()->setPos(ge->scenePos());
+						// elem->getHandleTo()->mousePressEvent(ge);
+						elem->onEndPositionChanged();
+						// generatePreview();
+					}
+					break;
+
+				case GradientElementsTool: {
+						FE_GradientElement *elem = new FE_GradientElement();
+						scene->addItem(elem);
+						elem->setPos(ge->scenePos());
+						elem->setPos(ge->scenePos());
+						elem->setColor(lastColor);
+					}
+					break;
+
+				case FlowBrushTool:
+					foreach(FE_FlowElement *elem, scene->findChildren<FE_FlowElement*>()) {
+						elem->setBrushed(false);
+					}
+					return true;
+
+				case GradientBrushTool:
+					return true;
+				}
+			} else if (ge->button() == Qt::LeftButton && tool() != FlowElementsTool && tool() != GradientElementsTool)  {
+				return true;
+			}
+		} else if (ge->button() == Qt::MidButton && item) {
+			if (item->type() == FE_GradientElement::Type) {
+				FE_GradientElement *elem = (FE_GradientElement*) item;
+				QColor color = QColorDialog::getColor(elem->color());
+				if (color.isValid()) {
+					elem->setColor(lastColor = color);
+					generatePreview();
+				}
+				return true;
+			} else if (item->type() == FE_FlowElementHandle::Type) {
+				FE_FlowElement *elem = ((FE_FlowElement*) ((FE_FlowElementHandle*)item)->flowElement());
+				bool ok;
+				int s = QInputDialog::getInt(this, "Enter wave size (0-255)", "Wave size", elem->waveSize(), 0, 255, 1, &ok);
+				if (ok) {
+					lastWaveSize = s;
+					elem->setWaveSize(s);
+					generatePreview();
+				}
+				return true;
+			}
+		} else if (ge->button() == Qt::RightButton && item != 0) {
+			if (item->type() == FE_FlowElementHandle::Type) {
+				FE_FlowElement *fe = ((FE_FlowElementHandle*) item)->flowElement();
+
+				if (ge->modifiers() & Qt::ShiftModifier) {
+					fe->setPassive(!fe->passive());
+				} else {
+					fe->removeFromScene();
+					delete fe;
+					// generatePreview();
+				}
+
+				return true;
+			} else if (item->type() == FE_GradientElement::Type) {
+				if (ge->modifiers() & Qt::ShiftModifier) {
+					((FE_GradientElement*) item)->setPassive(!((FE_GradientElement*) item)->passive());
+				} else {
+					delete item;
+				}
+				return true;
+			}
+		}
+
+		if (ge->button() == Qt::RightButton && (item == 0 || (item->flags() & QGraphicsItem::ItemIsMovable) == 0)) {
+			ui->tools_dockWidget->setFloating(true);
+			ui->tools_dockWidget->setGeometry(QRect(ge->screenPos(), ui->tools_dockWidget->minimumSize()));
+			ui->tools_dockWidget->setVisible(true);
+			return true;
+		}
+	} else if (e->type() == QEvent::GraphicsSceneMouseRelease) {
+		delete m_ArrowCue;
+		m_ArrowCue = 0;
+		if (ui->autoGeneratePreview->isChecked())
+			generatePreview();
+	} else if (e->type() == QEvent::GraphicsSceneMouseMove) {
+		QGraphicsSceneMouseEvent *ge = (QGraphicsSceneMouseEvent*) e;
+
+		if (ui->tool_comboBox->currentIndex() == FlowBrushTool && (ge->buttons() & Qt::LeftButton)) {
+
+			float angle = (ui->flowBrush_dial->value() - 90) * M_PI / 180.0f;
+
+			float dx = cos(angle);
+			float dy = -sin(angle);
+
+			float magn = ui->flowBrush_magnitude->value() * 2 * FE_FlowElement::maxRadius() / 100.0f;
+			dx *= magn;
+			dy *= magn;
+
+			float str = ui->flowBrush_strength->value() / 100.0f;
+
+			int siz = ui->flowBrush_size->value();
+
+			QTime now(QTime::currentTime());
+
+			foreach(FE_FlowElement *elem, scene->findChildren<FE_FlowElement*>()) {
+				if (QVector2D(elem->pos() - ge->scenePos()).length() < siz) {
+					if (elem->brushedTime().msecsTo(now) > 100) {
+						QPointF from = elem->getHandleFrom()->pos();
+						QPointF dir = elem->dir();
+
+						elem->getHandleTo()->setPos(from.x() + dx * str + dir.x() * (1 - str), from.y() + dy * str + dir.y() * (1 - str));
+						elem->setBrushedTime(now);
+					}
+				} else {
+					elem->setBrushed(false);
+				}
+			}
+		} else if (ui->tool_comboBox->currentIndex() == EraserTool && (ge->buttons() & Qt::LeftButton)) {
+			int siz = ui->eraser_size->value();
+
+			foreach(FE_Element *elem, elems()) {
+				if (QVector2D(elem->pos() - ge->scenePos()).length() < siz) {
+					if (dynamic_cast<FE_FlowElement*>(elem)) {
+						((FE_FlowElement*) elem)->removeFromScene();
+					} else {
+						scene->removeItem(dynamic_cast<QGraphicsItem*>(elem));
+					}
+					delete elem;
+				}
+			}
+
+			scene->update();
+		} else if (ui->tool_comboBox->currentIndex() == GradientBrushTool && (ge->buttons() & Qt::LeftButton)) {
+			int siz = ui->gradientBrush_size->value();
+
+			foreach(FE_Element *elem, elems()) {
+				if (QVector2D(elem->pos() - ge->scenePos()).length() < siz) {
+					if (dynamic_cast<FE_GradientElement*>(elem)) {
+						((FE_GradientElement*) elem)->setColor(m_GradientBrushColor);
+					}
+				}
+			}
+		} else if (tool() == MarkPassiveTool && (ge->buttons() & Qt::LeftButton)) {
+			int siz = ui->markPassive_size->value();
+			int mode = ui->markPassive_mode->currentIndex();
+
+			foreach(FE_Element *elem, elems()) {
+				if (QVector2D(elem->pos() - ge->scenePos()).length() < siz) {
+					elem->setPassive(mode == 0 ? true : (mode == 1 ? false : !elem->passive()));
+				}
+			}
+		}
+	}
 	return QObject::eventFilter(o, e);
 }
 
@@ -429,40 +782,51 @@ bool FEMainWindow::event(QEvent *e)
 	return QMainWindow::event(e);
 }
 
+int FEMainWindow::tool()
+{
+	return ui->tool_comboBox->currentIndex();
+}
+
 QImage FEMainWindow::generateFlowMap()
 {
 	QSize s(image->pixmap().size());
 	int w = s.width();
 	int h = s.height();
 
-	double *A = new double[w * h * 3];
-	for (int i = 0; i < w*h*3; i++)
+	double *A = new double[w * h * 4];
+	for (int i = 0; i < w*h*4; i++)
 		A[i]=-1;
 
 	// Voronoi tesselation
-	QVector<FE_FlowElement*> elems = scene->findChildren<FE_FlowElement*>().toVector();
+	QVector<FE_Element*> elems;
+	foreach(FE_FlowElement *elem, scene->findChildren<FE_FlowElement*>()) {
+		elems.push_back(elem);
+	}
+	foreach(QGraphicsItem *item, scene->items()) {
+		if (item->type() == FE_GradientElement::Type)
+			elems.push_back((FE_GradientElement*) item);
+	}
+
 	#pragma omp parallel for
 	for (int i = 0; i < elems.size(); i++)
 	{
 		QPointF pos(elems[i]->pos());
-		QVector2D dir(elems[i]->dir());
-		if (dir.length() < 1)
-			dir = QVector2D();
-		dir.normalize();
+		QColor color(elems[i]->color());
 
 		for (int y = 0; y < h; y++)
 			for (int x = 0; x < w; x++) {
-				int ofs = (y * w + x) * 3;
+				int ofs = (y * w + x) * 4;
 				qreal l = QVector2D(pos - QPointF(x, y)).lengthSquared();
 				if (l < A[ofs] || A[ofs] == -1) {
 					A[ofs] = l;
-					A[ofs + 1] = dir.x();
-					A[ofs + 2] = dir.y();
+					A[ofs + 1] = color.red();
+					A[ofs + 2] = color.green();
+					A[ofs + 3] = color.blue();
 				}
 			}
 	}
 
-	double *B = new double[w * h * 2];
+	double *B = new double[w * h * 3];
 
 	// Natural neighbor
 	#pragma omp parallel for
@@ -470,45 +834,50 @@ QImage FEMainWindow::generateFlowMap()
 		for (int x = 0; x < w; x++) {
 			int r = 0;
 			int count = 0;
-			qreal dir_x = 0;
-			qreal dir_y = 0;
+			qreal red = 0;
+			qreal green = 0;
+			qreal blue = 0;
 			while(true) {
 				int count1 = count;
 				for (int x1 = qMax(0, x - r); x1 <= qMin(w-1, x + r); x1++) {
 					qreal l = (x1-x)*(x1-x) + r*r;
-					int ofs1 = (qMax(0, y - r) * w + x1) * 3;
-					Q_ASSERT(ofs1 < w*h*3);
+					int ofs1 = (qMax(0, y - r) * w + x1) * 4;
+					Q_ASSERT(ofs1 < w*h*4);
 					Q_ASSERT(A[ofs1] != -1);
 					if (l <= A[ofs1]) {
-						dir_x += A[ofs1+1];
-						dir_y += A[ofs1+2];
+						red += A[ofs1+1];
+						green += A[ofs1+2];
+						blue += A[ofs1+3];
 						count++;
 					}
-					ofs1 = (qMin(h-1, y + r) * w + x1) * 3;
-					Q_ASSERT(ofs1 < w*h*3);
+					ofs1 = (qMin(h-1, y + r) * w + x1) * 4;
+					Q_ASSERT(ofs1 < w*h*4);
 					Q_ASSERT(A[ofs1] != -1);
 					if (l <= A[ofs1]) {
-						dir_x += A[ofs1+1];
-						dir_y += A[ofs1+2];
+						red += A[ofs1+1];
+						green += A[ofs1+2];
+						blue += A[ofs1+3];
 						count++;
 					}
 				}
 				for (int y1 = qMax(0, y - r); y1 <= qMin(h-1, y + r); y1++) {
 					qreal l = (y1-y)*(y1-y) + r*r;
-					int ofs1 = (y1 * w + qMax(0, x - r)) * 3;
-					Q_ASSERT(ofs1 < w*h*3);
+					int ofs1 = (y1 * w + qMax(0, x - r)) * 4;
+					Q_ASSERT(ofs1 < w*h*4);
 					Q_ASSERT(A[ofs1] != -1);
 					if (l <= A[ofs1]) {
-						dir_x += A[ofs1+1];
-						dir_y += A[ofs1+2];
+						red += A[ofs1+1];
+						green += A[ofs1+2];
+						blue += A[ofs1+3];
 						count++;
 					}
-					ofs1 = (y1 * w + qMin(w-1, x + r)) * 3;
-					Q_ASSERT(ofs1 < w*h*3);
+					ofs1 = (y1 * w + qMin(w-1, x + r)) * 4;
+					Q_ASSERT(ofs1 < w*h*4);
 					Q_ASSERT(A[ofs1] != -1);
 					if (l <= A[ofs1]) {
-						dir_x += A[ofs1+1];
-						dir_y += A[ofs1+2];
+						red += A[ofs1+1];
+						green += A[ofs1+2];
+						blue += A[ofs1+3];
 						count++;
 					}
 				}
@@ -516,9 +885,10 @@ QImage FEMainWindow::generateFlowMap()
 					break;
 				r++;
 			}
-			int ofs = (y * w + x) * 2;
-			B[ofs] = dir_x / count;
-			B[ofs+1] = dir_y / count;
+			int ofs = (y * w + x) * 3;
+			B[ofs] = red / count;
+			B[ofs+1] = green / count;
+			B[ofs+2] = blue / count;
 		}
 
 	/* qreal max = 0;
@@ -535,9 +905,9 @@ QImage FEMainWindow::generateFlowMap()
 	for (int i = 0; i < w * h; i++) {
 		// A[i] /= max;
 		bits[i * 4 + 3] = 255;
-		bits[i * 4 + 2] = (B[i * 2] + 1) / 2 * 255;
-		bits[i * 4 + 1] = (B[i * 2 + 1] + 1) / 2 * 255;
-		bits[i * 4] = 0;
+		bits[i * 4 + 2] = B[i * 3];
+		bits[i * 4 + 1] = B[i * 3 + 1];
+		bits[i * 4] = B[i * 3 + 2];
 	}
 
 
@@ -549,7 +919,7 @@ QImage FEMainWindow::generateFlowMap()
 
 QPixmap FEMainWindow::fastGenerateFlowMap()
 {
-	QVector<FE_FlowElement*> elems(scene->findChildren<FE_FlowElement*>().toVector());
+	QVector<FE_Element*> elems(this->elems());
 	QProcess p;
 	p.start("qdelaunay", QStringList("Fv") << "Qt");
 	if (!p.waitForStarted()) {
@@ -558,7 +928,7 @@ QPixmap FEMainWindow::fastGenerateFlowMap()
 	}
 	p.write(QString("2 rbox %1 D2\r\n").arg(elems.size()).toAscii());
 	p.write(QString("%1\r\n").arg(elems.size()).toAscii());
-	foreach (FE_FlowElement *e, elems) {
+	foreach (FE_Element *e, elems) {
 		p.write(QString("%1 %2\r\n").arg(e->pos().x()).arg(e->pos().y()).toAscii());
 		p.waitForBytesWritten();
 	}
@@ -582,9 +952,56 @@ QPixmap FEMainWindow::fastGenerateFlowMap()
 		v << ind[3].toInt();
 		indices.push_back(v);
 	}
-	glwidget->setElems(elems);
+
+	QImage im(image->pixmap().width(), image->pixmap().height(), QImage::Format_ARGB32);
+	im.fill(0xff000000);
+
+	foreach (QVector<int> I, indices) {
+
+		FE_Element *e0(elems[I[0]]);
+		FE_Element *e1(elems[I[1]]);
+		FE_Element *e2(elems[I[2]]);
+		// glColor3ub(e1->color().red(), e1->color().green(), e1->color().blue());
+		// glVertex3f(e1->pos().x(), e1->pos().y(), 0);
+
+		QColor c0(e0->color());
+		QColor c1(e1->color());
+		QColor c2(e2->color());
+
+		if (e0->passive()) c0 = (e1->passive() ? c2 : c1);
+		if (e1->passive()) c1 = (e0->passive() ? c2 : c0);
+		if (e2->passive()) c2 = (e0->passive() ? c1 : c0);
+
+		Draw_Gouraud_Triangle(im, e0->pos().x(), e0->pos().y(), c0.red(), c0.green(), c0.blue(),
+				      e1->pos().x(), e1->pos().y(), c1.red(), c1.green(), c1.blue(),
+				      e2->pos().x(), e2->pos().y(), c2.red(), c2.green(), c2.blue());
+	}
+
+	return QPixmap::fromImage(im);
+
+
+	/* glwidget->setElems(elems);
 	glwidget->setIndices(indices);
-	return glwidget->renderPixmap(image->pixmap().width(), image->pixmap().height());
+	// glwidget->swapBuffers();
+
+
+	glwidget->setWindowFlags(glwidget->windowFlags() | Qt::WindowStaysOnTopHint);
+	glwidget->setGeometry(2000, 2000, image->pixmap().width(), image->pixmap().height());
+	glwidget->setVisible(true);
+	// QPixmap ret = glwidget->renderPixmap(image->pixmap().width(), image->pixmap().height());
+
+	QEventLoop loop;
+	QTimer t;
+	connect(&t, SIGNAL(timeout()), &loop, SLOT(quit()));
+	t.setInterval(10);
+	t.start();
+	loop.exec(QEventLoop::ExcludeUserInputEvents);
+	// glwidget->updateGL();
+	// sleep()
+	QPixmap ret = QPixmap::fromImage(glwidget->grabFrameBuffer());
+
+	glwidget->setVisible(false);
+	return ret; */
 }
 
 void FEMainWindow::generatePreview()
@@ -594,4 +1011,18 @@ void FEMainWindow::generatePreview()
 	previewBtn->setIcon(QIcon(fm));
 	if (previewBtn->isChecked())
 		image->setPixmap(fm);
+}
+
+QVector<FE_Element*> FEMainWindow::elems()
+{
+	QVector<FE_Element*> elems;
+	foreach(FE_FlowElement *elem, scene->findChildren<FE_FlowElement*>()) {
+		elems.push_back(elem);
+	}
+	foreach(QGraphicsItem *item, scene->items()) {
+		if (item->type() == FE_GradientElement::Type)
+			elems.push_back((FE_GradientElement*) item);
+	}
+
+	return elems;
 }
