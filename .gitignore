@@ -1,0 +1,6 @@
+Makefile*
+debug/
+release/
+akima/
+*.user
+*.zip

@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>FEMainWindow</class>
+ <widget class="QMainWindow" name="FEMainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>614</width>
+    <height>415</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Flow Editor (C) Stanislaw Adaszewski, 2012, http://algoholic.eu</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QHBoxLayout" name="horizontalLayout">
+    <item>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QPushButton" name="previewBtn">
+        <property name="text">
+         <string/>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="fileBtn">
+        <property name="text">
+         <string>&amp;File</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="expAndSwitchBtn">
+        <property name="text">
+         <string>&amp;Repeat Last Export</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="makeGridBtn">
+        <property name="text">
+         <string>Make &amp;Grid</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="widget" native="true">
+        <layout class="QVBoxLayout" name="verticalLayout_2">
+         <item>
+          <widget class="QLabel" name="label">
+           <property name="text">
+            <string>Tool:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="indivBtn">
+           <property name="text">
+            <string>&amp;Individual</string>
+           </property>
+           <property name="checkable">
+            <bool>true</bool>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+           <property name="autoExclusive">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="brushBtn">
+           <property name="text">
+            <string>&amp;Brush</string>
+           </property>
+           <property name="checkable">
+            <bool>true</bool>
+           </property>
+           <property name="autoExclusive">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="eraserBtn">
+           <property name="text">
+            <string>&amp;Eraser</string>
+           </property>
+           <property name="checkable">
+            <bool>true</bool>
+           </property>
+           <property name="autoExclusive">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>Brush size:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSlider" name="brushSizeSlider">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimum">
+            <number>1</number>
+           </property>
+           <property name="maximum">
+            <number>100</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="tickPosition">
+            <enum>QSlider::NoTicks</enum>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="brushOnceChkbx">
+           <property name="text">
+            <string>Brush once</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item>
+       <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QGraphicsView" name="graphicsView">
+      <property name="alignment">
+       <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>614</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menu_File">
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+    <widget class="QMenu" name="menuE_xport_flow_map">
+     <property name="title">
+      <string>E&amp;xport flow map</string>
+     </property>
+     <addaction name="action_Export_flow_map_fast"/>
+     <addaction name="actionExport_flow_map_AKIMA"/>
+     <addaction name="action_Export_flow_map"/>
+    </widget>
+    <addaction name="action_New"/>
+    <addaction name="action_Load_image"/>
+    <addaction name="action_Load_flow_field"/>
+    <addaction name="action_Save_flow_field"/>
+    <addaction name="menuE_xport_flow_map"/>
+    <addaction name="separator"/>
+    <addaction name="action_Quit"/>
+   </widget>
+   <addaction name="menu_File"/>
+  </widget>
+  <action name="action_Load_image">
+   <property name="text">
+    <string>&amp;Load image</string>
+   </property>
+  </action>
+  <action name="action_Load_flow_field">
+   <property name="text">
+    <string>Load &amp;flow field</string>
+   </property>
+  </action>
+  <action name="action_Save_flow_field">
+   <property name="text">
+    <string>&amp;Save flow field</string>
+   </property>
+  </action>
+  <action name="action_Export_flow_map">
+   <property name="text">
+    <string>Natural Neighbor Interpolation</string>
+   </property>
+  </action>
+  <action name="action_Quit">
+   <property name="text">
+    <string>&amp;Quit</string>
+   </property>
+  </action>
+  <action name="action_New">
+   <property name="text">
+    <string>&amp;New</string>
+   </property>
+  </action>
+  <action name="action_Export_flow_map_fast">
+   <property name="text">
+    <string>Linear Interpolation</string>
+   </property>
+  </action>
+  <action name="actionExport_flow_map_AKIMA">
+   <property name="text">
+    <string>Cubic Interpolation</string>
+   </property>
+  </action>
+ </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <resources/>
+ <connections/>
+</ui>
