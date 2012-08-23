@@ -155,6 +155,7 @@ QGraphicsEllipseItem* FE_BezierCurve::newPoint(const QPointF &pt, const QColor &
     updateColor(p, c);
     p->setFlags(p->flags() | QGraphicsItem::ItemIsMovable);
     p->setPos(p->mapToParent(p->mapFromScene(pt)));
+    p->setZValue(1);
     p->installSceneEventFilter(this);
     return p;
 }
