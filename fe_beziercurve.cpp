@@ -106,9 +106,9 @@ int FE_BezierCurve::type() const
 
 bool FE_BezierCurve::sceneEventFilter(QGraphicsItem *watched, QEvent *event)
 {
-    m_LastCurve = this;
-
     if (event->type() == QEvent::GraphicsSceneMousePress) {
+        m_LastCurve = this;
+
         if (((QGraphicsSceneMouseEvent*) event)->button() == Qt::MiddleButton) {
             if (m_Points.indexOf((QGraphicsEllipseItem*) watched) % 3 == 0) {
                 QColor c = QColorDialog::getColor(((QGraphicsEllipseItem*) watched)->brush().color());
