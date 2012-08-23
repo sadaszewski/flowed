@@ -4,6 +4,17 @@
 #include <QGraphicsSceneEvent>
 #include <QColorDialog>
 #include <QPen>
+#include <QGraphicsScene>
+#include <QInputDialog>
+
+#include "femainwindow.h"
+
+FE_BezierCurve *FE_BezierCurve::m_LastCurve;
+
+FE_BezierCurve* FE_BezierCurve::lastCurve()
+{
+    return m_LastCurve;
+}
 
 FE_BezierCurve::FE_BezierCurve(const QPointF &pt, QGraphicsScene *scene):
     QGraphicsItemGroup(0, scene)
@@ -11,28 +22,92 @@ FE_BezierCurve::FE_BezierCurve(const QPointF &pt, QGraphicsScene *scene):
     m_Bezier = new QGraphicsPathItem(this);
     m_Segments = new QGraphicsPathItem(this);
 
+    m_Bezier->setPen(QPen(Qt::white, 1, Qt::SolidLine));
+    m_Segments->setPen(QPen(Qt::white, 1, Qt::DashLine));
+
     for (int i = 0; i < 4; i++) {
-        m_Points.push_back(newPoint(QPointF(pt.x() + i * 10, pt.y() + i * 10)));
+        m_Points.push_back(newPoint(QPointF(pt.x() + i * 10, pt.y() + i * 10), Qt::gray));
     }
 
     updatePaths();
+
+    m_LastCurve = this;
+    m_Width = 5;
+}
+
+FE_BezierCurve::~FE_BezierCurve()
+{
+    qDeleteAll(m_Points);
 }
 
 void FE_BezierCurve::addPoint(const QPointF &pt)
 {
     QPointF tail(m_Points.last()->pos());
+    QColor c(m_Points.last()->brush().color());
 
     QPointF delta(pt - tail);
 
-    m_Points.push_back(newPoint(tail + delta / 2));
-    m_Points.push_back(newPoint(tail + 2 * delta / 3));
-    m_Points.push_back(newPoint(pt));
+    m_Points.push_back(newPoint(tail + delta / 2, Qt::gray));
+    m_Points.push_back(newPoint(tail + 2 * delta / 3, Qt::gray));
+    m_Points.push_back(newPoint(pt, c));
 
     updatePaths();
 }
 
+void FE_BezierCurve::save(QDataStream &ds)
+{
+    ds << m_Width;
+    ds << m_Points.size();
+    foreach(QGraphicsEllipseItem *item, m_Points) {
+        ds << item->scenePos();
+        ds << item->brush().color();
+    }
+}
+
+void FE_BezierCurve::load(QDataStream &ds)
+{
+    qDeleteAll(m_Points);
+    m_Points.clear();
+    ds >> m_Width;
+    int n;
+    ds >> n;
+    for (int i = 0; i < n; i++) {
+        QPointF p;
+        QColor c;
+        ds >> p;
+        ds >> c;
+        m_Points.push_back(newPoint(p, c));
+    }
+    updatePaths();
+}
+
+void draw_item_along_bezier(QPainter *painter, QGraphicsItem *item, const qreal x[], const qreal y[], int steps, const QColor &c1, const QColor &c2);
+
+void FE_BezierCurve::render(QPainter *painter)
+{
+    float w = m_Width;
+    QGraphicsRectItem *item = new QGraphicsRectItem(-w/2, -w/2, w, w);
+    item->setBrush(QBrush(Qt::gray));
+
+    for (int i = 0; i < m_Points.size() - 3; i += 3) {
+        qreal x[] = {m_Points[i]->scenePos().x(), m_Points[i + 1]->scenePos().x(), m_Points[i + 2]->scenePos().x(), m_Points[i + 3]->scenePos().x()};
+        qreal y[] = {m_Points[i]->scenePos().y(), m_Points[i + 1]->scenePos().y(), m_Points[i + 2]->scenePos().y(), m_Points[i + 3]->scenePos().y()};
+
+        draw_item_along_bezier(painter, item, x, y, 1000, m_Points[i]->brush().color(), m_Points[i + 3]->brush().color());
+    }
+
+    delete item;
+}
+
+int FE_BezierCurve::type() const
+{
+    return Type;
+}
+
 bool FE_BezierCurve::sceneEventFilter(QGraphicsItem *watched, QEvent *event)
 {
+    m_LastCurve = this;
+
     if (event->type() == QEvent::GraphicsSceneMousePress) {
         if (((QGraphicsSceneMouseEvent*) event)->button() == Qt::MiddleButton) {
             if (m_Points.indexOf((QGraphicsEllipseItem*) watched) % 3 == 0) {
@@ -40,6 +115,17 @@ bool FE_BezierCurve::sceneEventFilter(QGraphicsItem *watched, QEvent *event)
                 if (c.isValid()) {
                     updateColor((QAbstractGraphicsShapeItem*) watched, c);
                 }
+                watched->ungrabMouse();
+                FEMainWindow::instance()->generatePreview();
+                return true;
+            } else {
+                bool ok;
+                int w = QInputDialog::getInt(0, "Curve width", "Curve width", m_Width, 1, 255, 1, &ok);
+                if (ok) {
+                    m_Width = w;
+                }
+                watched->ungrabMouse();
+                FEMainWindow::instance()->generatePreview();
                 return true;
             }
         } else if (((QGraphicsSceneMouseEvent*) event)->button() == Qt::RightButton) {
@@ -49,18 +135,24 @@ bool FE_BezierCurve::sceneEventFilter(QGraphicsItem *watched, QEvent *event)
                 m_Points.erase(m_Points.begin() + idx - 2, m_Points.begin() + idx + 1);
                 updatePaths();
                 return true;
+            } else if (idx % 3 == 0) {
+                m_LastCurve = 0;
+                // qDeleteAll(m_Points);
+                delete this;
+                return true;
             }
         }
-    } else if (event->type() == QEvent::GraphicsSceneMove) {
+    } else if (event->type() == QEvent::GraphicsSceneMouseMove) {
         updatePaths();
     }
 
     return false;
 }
 
-QGraphicsEllipseItem* FE_BezierCurve::newPoint(const QPointF &pt)
+QGraphicsEllipseItem* FE_BezierCurve::newPoint(const QPointF &pt, const QColor &c)
 {
-    QGraphicsEllipseItem *p = new QGraphicsEllipseItem(-8, -8, 16, 16, this);
+    QGraphicsEllipseItem *p = new QGraphicsEllipseItem(-5, -5, 10, 10, 0, scene());
+    updateColor(p, c);
     p->setFlags(p->flags() | QGraphicsItem::ItemIsMovable);
     p->setPos(p->mapToParent(p->mapFromScene(pt)));
     p->installSceneEventFilter(this);
@@ -89,10 +181,6 @@ void FE_BezierCurve::updatePaths()
 
 void FE_BezierCurve::updateColor(QAbstractGraphicsShapeItem *item, const QColor &c)
 {
-    QBrush b(item->brush());
-    b.setColor(c);
-    item->setBrush(b);
-    QPen p(item->pen());
-    p.setColor(c);
-    item->setPen(p);
+    item->setBrush(QBrush(c));
+    item->setPen(QPen(c.darker()));
 }

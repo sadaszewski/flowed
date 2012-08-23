@@ -24,6 +24,7 @@
 #include "fe_flowelementhandle.h"
 // #include "fe_glwidget.h"
 #include "fe_gradientelement.h"
+#include "fe_beziercurve.h"
 
 extern "C" {
 #include "nn.h"
@@ -32,9 +33,9 @@ extern "C" {
 #include "qarrowcue.h"
 
 void Draw_Gouraud_Triangle(QImage &image, /* int w, int h, int pitch, */
-			int x0, int y0, float r0, float g0, float b0,
-			      int x1, int y1, float r1, float g1, float b1,
-			      int x2, int y2, float r2, float g2, float b2);
+            int x0, int y0, float r0, float g0, float b0, float a0,
+                  int x1, int y1, float r1, float g1, float b1, float a1,
+                  int x2, int y2, float r2, float g2, float b2, float a2);
 
 enum {
 	FlowElementsTool,
@@ -44,7 +45,8 @@ enum {
 	EraserTool,
 	GradientBrushTool,
     MarkPassiveTool,
-    AddBezierCurveTool
+    AddBezierCurveTool,
+    AddBezierPointTool
 };
 
 // Custom QGraphicsItem properties
@@ -58,10 +60,18 @@ enum {
     BezierCurve
 };
 
+FEMainWindow *FEMainWindow::m_Instance;
+
+FEMainWindow* FEMainWindow::instance()
+{
+    return m_Instance;
+}
+
 FEMainWindow::FEMainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::FEMainWindow)
 {
+    m_Instance = this;
     ui->setupUi(this);
     scene = new QGraphicsScene(ui->graphicsView);
     ui->graphicsView->setScene(scene);
@@ -151,6 +161,8 @@ void FEMainWindow::saveFlowField()
 		QFile f(fname);
 		f.open(QFile::WriteOnly);
 		QDataStream ds(&f);
+        int version = 3;
+        ds << version;
 		QList<FE_FlowElement*> flowElements = scene->findChildren<FE_FlowElement*>();
 		ds << flowElements.size();
 		foreach (FE_FlowElement *fe, flowElements) {
@@ -169,6 +181,11 @@ void FEMainWindow::saveFlowField()
 			ds << ((FE_GradientElement*) item)->color();
 			ds << ((FE_GradientElement*) item)->passive();
 		}
+        QList<FE_BezierCurve*> bcs(bezierCurves());
+        ds << bcs.size();
+        foreach(FE_BezierCurve *bc, bcs) {
+            bc->save(ds);
+        }
 	}
 }
 
@@ -176,7 +193,7 @@ void FEMainWindow::exportFlowmap()
 {
 	QString fname = QFileDialog::getSaveFileName(this, "Save flowmap", QString(), "Images (*.png *.jpg)");
 	if (!fname.isEmpty()) {
-		QImage im(nnGenerateFlowMap());
+        QImage im(renderFinalImage(&FEMainWindow::nnGenerateFlowMap, false));
 		im.save(fname);
 		exportFName = QString("%1;1").arg(fname);
 	}
@@ -196,6 +213,8 @@ void FEMainWindow::loadFlowField(const QString& fname)
 	QFile f(fname);
 	f.open(QFile::ReadOnly);
 	QDataStream ds(&f);
+    int version;
+    ds >> version;
 	int flowElementsCount;
 	ds >> flowElementsCount;
 	for (int i = 0; i < flowElementsCount; i++) {
@@ -226,6 +245,12 @@ void FEMainWindow::loadFlowField(const QString& fname)
 		elem->setColor(color);
         elem->setPassive(passive);
 	}
+    int bezierCurvesCount;
+    ds >> bezierCurvesCount;
+    for (int i = 0; i < bezierCurvesCount; i++) {
+        FE_BezierCurve *bc = new FE_BezierCurve(QPointF(0, 0), scene);
+        bc->load(ds);
+    }
 
 	generatePreview();
 }
@@ -261,6 +286,7 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 	double *ZD1 = new double[NDP];
 	double *ZD2 = new double[NDP];
 	double *ZD3 = new double[NDP];
+    double *ZD4 = new double[NDP];
 	int NXI = image->pixmap().width();
 	double *XI = new double[NXI];
 	int NYI = image->pixmap().height();
@@ -268,6 +294,7 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 	double *ZI1 = new double[NXI*NYI]; // final output X
 	double *ZI2 = new double[NXI*NYI]; // final output Y
 	double *ZI3 = new double[NXI*NYI]; // final output Z
+    double *ZI4 = new double[NXI*NYI]; // final output A
 	int IER;
 	double *WK = new double[NDP * 17];
 	int *IWK = new int[NDP * 25];
@@ -295,6 +322,7 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 		ZD1[i] = color.red();
 		ZD2[i] = color.green();
 		ZD3[i] = color.blue();
+        ZD4[i] = color.alpha();
 	}
 
 	sdsf3p_(&MD, &NDP, XD, YD, ZD1, &NXI, XI, &NYI, YI, ZI1, &IER, WK, IWK, EXTRPI, NEAR_, NEXT, DIST);
@@ -317,7 +345,10 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 
 	sdsf3p_(&MD, &NDP, XD, YD, ZD3, &NXI, XI, &NYI, YI, ZI3, &IER, WK, IWK, EXTRPI, NEAR_, NEXT, DIST);
 
+    sdsf3p_(&MD, &NDP, XD, YD, ZD4, &NXI, XI, &NYI, YI, ZI4, &IER, WK, IWK, EXTRPI, NEAR_, NEXT, DIST);
+
 	QImage im(NXI, NYI, QImage::Format_ARGB32);
+    im.fill(0x00000000);
 	uchar *data = im.bits();
 	for (int x = 0; x < NXI; x++)
 		for (int y = 0; y < NYI; y++) {
@@ -327,11 +358,12 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 			double red = qMin(qMax(ZI1[ofs2], 0.0), 255.0);
 			double green = qMin(qMax(ZI2[ofs2], 0.0), 255.0);
 			double blue = qMin(qMax(ZI3[ofs2], 0.0), 255.0);
+            double alpha = qMin(qMax(ZI4[ofs2], 0.0), 255.0);
 			// double l = sqrt(x*x+y*y);
 			// x /= l;
 			// y /= l;
 
-			data[ofs1 + 3] = 255;
+            data[ofs1 + 3] = alpha;
 			data[ofs1 + 2] = red;
 			data[ofs1 + 1] = green;
 			data[ofs1 + 0] = blue;
@@ -342,11 +374,13 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 	delete [] ZD1;
 	delete [] ZD2;
 	delete [] ZD3;
+    delete [] ZD4;
 	delete [] XI;
 	delete [] YI;
 	delete [] ZI1;
 	delete [] ZI2;
 	delete [] ZI3;
+    delete [] ZI4;
 	delete [] WK;
 	delete [] IWK;
 	delete [] EXTRPI;
@@ -378,6 +412,7 @@ QImage FEMainWindow::nnGenerateFlowMap()
 	double *red = new double[N];
 	double *green = new double[N];
 	double *blue = new double[N];
+    double *alpha = new double[N];
 	for (int yy = 0; yy < h; yy++) {
 		for (int xx = 0; xx < w; xx++) {
 			x[yy*w+xx] = xx;
@@ -407,22 +442,30 @@ QImage FEMainWindow::nnGenerateFlowMap()
 	}
 	nnai_interpolate(nn, zin, blue);
 
+    // alpha
+    for (int i = 0; i < elems.size(); i++) {
+        zin[i] = elems[i]->color().alpha();
+    }
+    nnai_interpolate(nn, zin, alpha);
+
 #define CLAMP(v) ((v) < 0 ? 0 : ((v) > 255 ? 255 : (v)))
 
-	QColor cc(Qt::black);
+    QColor cc(0, 0, 0, 0);
 
 	QImage im(w, h, QImage::Format_ARGB32);
+    im.fill(0x00000000);
 	for (int yy = 0; yy < h; yy++) {
 		for (int xx = 0; xx < w; xx++) {
 			double r = red[yy*w + xx];
 			double g = green[yy*w + xx];
-			double  b = blue[yy*w + xx];
+            double b = blue[yy*w + xx];
+            double a = alpha[yy*w + xx];
 			if (1){//isfinite(r) && isfinite(g) && isfinite(b)) {
-				QColor c(CLAMP(r), CLAMP(g), CLAMP(b), 255);
-				im.setPixel(xx, yy, c.rgb());
+                QColor c(CLAMP(r), CLAMP(g), CLAMP(b), CLAMP(a));
+                im.setPixel(xx, yy, c.rgba());
 				cc = c;
 			} else {
-				im.setPixel(xx, yy, cc.rgb());
+                im.setPixel(xx, yy, cc.rgba());
 			}
 		}
 	}
@@ -434,6 +477,7 @@ QImage FEMainWindow::nnGenerateFlowMap()
 	delete[] red;
 	delete[] green;
 	delete[] blue;
+    delete[] alpha;
 
 	nnai_destroy(nn);
 	delaunay_destroy(d);
@@ -454,7 +498,7 @@ void FEMainWindow::newFlowField()
 		delete fe;
 	}
 	foreach(QGraphicsItem *item, scene->items()) {
-		if (item->type() == FE_GradientElement::Type)
+        if (item->type() == FE_GradientElement::Type || item->type() == FE_BezierCurve::Type)
 			delete item;
 	}
 }
@@ -469,7 +513,7 @@ void FEMainWindow::exportFlowmapFast()
 {
 	QString fname = QFileDialog::getSaveFileName(this, "Save flowmap", QString(), "Images (*.png *.jpg)");
 	if (!fname.isEmpty()) {
-		QImage im(fastGenerateFlowMap().toImage());
+        QImage im(renderFinalImage(&FEMainWindow::fastGenerateFlowMap, false));
 		im.save(fname);
 		exportFName = QString("%1;2").arg(fname);
 	}
@@ -479,7 +523,7 @@ void FEMainWindow::bigPreview(bool b)
 {
 	if (b) {
 		origPixmap = image->pixmap();
-		image->setPixmap(fastGenerateFlowMap());
+        image->setPixmap(QPixmap::fromImage(renderFinalImage(&FEMainWindow::fastGenerateFlowMap)));
 	} else {
 		image->setPixmap(origPixmap);
 	}
@@ -496,7 +540,7 @@ void FEMainWindow::expAndSwitch()
 	if (c == '1')
 		im = generateFlowMap();
 	else if (c == '2')
-		im = fastGenerateFlowMap().toImage();
+        im = fastGenerateFlowMap();
 	else
 		im = akimaGenerateFlowMap();
 	im.save(exportFName.left(exportFName.length()-2));
@@ -506,7 +550,7 @@ void FEMainWindow::exportFlowmapAkima()
 {
 	QString fname = QFileDialog::getSaveFileName(this, "Save flowmap", QString(), "Images (*.png *.jpg)");
 	if (!fname.isEmpty()) {
-		QImage im(akimaGenerateFlowMap());
+        QImage im(renderFinalImage(&FEMainWindow::akimaGenerateFlowMap, false));
 		im.save(fname);
 		exportFName = QString("%1;3").arg(fname);
 	}
@@ -555,7 +599,7 @@ void FEMainWindow::generateGradientGrid()
 	int nRows = QInputDialog::getInt(this, "Number of rows", "Rows", 5, 1, 1000, 1, &ok);
 	if (!ok)
 		return;
-	QColor c = QColorDialog::getColor(Qt::gray, this);
+    QColor c = QColorDialog::getColor(Qt::gray, this, "Color", QColorDialog::ShowAlphaChannel);
 	if (!c.isValid())
 		return;
 
@@ -574,7 +618,7 @@ void FEMainWindow::generateGradientGrid()
 
 void FEMainWindow::selectGradientBrushColor()
 {
-	QColor c = QColorDialog::getColor(m_GradientBrushColor, this);
+    QColor c = QColorDialog::getColor(m_GradientBrushColor, this, "Color", QColorDialog::ShowAlphaChannel);
 	if (c.isValid()) {
 		m_GradientBrushColor = c;
 		ui->gradientBrush_color->setStyleSheet(QString("background-color: #%1%2%3").arg(c.red(), 2, 16, QChar('0')).arg(c.green(), 2, 16, QChar('0')).arg(c.blue(), 2, 16, QChar('0')));
@@ -657,32 +701,24 @@ bool FEMainWindow::eventFilter(QObject *o, QEvent *e)
 					return true;
 
                 case AddBezierCurveTool: {
-                        QGraphicsPathItem *pathItem = new QGraphicsPathItem(0, scene);
-                        pathItem->setData(ItemType, BezierCurve);
-                        pathItem->setData(PenWidth, 32);
-                        FE_GradientElement *elem[4];
-                        for (int i = 0; i < 4; i++) {
-                            elem[i] = new FE_GradientElement();
-                            elem[i]->setParentItem(pathItem);
-                            elem[i]->setPos(ge->scenePos() + QPointF(10, 10) * i);
-                            elem[i]->setColor(lastColor);
-                            // elem[i]->setZValue(1);
+                        new FE_BezierCurve(ge->scenePos(), scene);
+                    }
+                    return true;
+
+                case AddBezierPointTool: {
+                        if (FE_BezierCurve::lastCurve()) {
+                            FE_BezierCurve::lastCurve()->addPoint(ge->scenePos());
                         }
-                        QPainterPath p;
-                        p.moveTo(elem[0]->scenePos());
-                        p.cubicTo(elem[1]->scenePos(), elem[2]->scenePos(), elem[3]->scenePos());
-                        pathItem->setPath(p);
-                        pathItem->setPen(QPen(lastColor, 32));
                     }
                     return true;
 				}
-            } else if (ge->button() == Qt::LeftButton && tool() != FlowElementsTool && tool() != GradientElementsTool && tool() != AddBezierCurveTool)  {
+            } else if (ge->button() == Qt::LeftButton && tool() != FlowElementsTool && tool() != GradientElementsTool && tool() != AddBezierCurveTool && tool() != AddBezierPointTool)  {
 				return true;
 			}
 		} else if (ge->button() == Qt::MidButton && item) {
 			if (item->type() == FE_GradientElement::Type) {
 				FE_GradientElement *elem = (FE_GradientElement*) item;
-				QColor color = QColorDialog::getColor(elem->color());
+                QColor color = QColorDialog::getColor(elem->color(), this, "Color", QColorDialog::ShowAlphaChannel);
 				if (color.isValid()) {
 					elem->setColor(lastColor = color);
 					generatePreview();
@@ -732,7 +768,7 @@ bool FEMainWindow::eventFilter(QObject *o, QEvent *e)
 		delete m_ArrowCue;
 		m_ArrowCue = 0;
 
-        foreach (QGraphicsItem *item, scene->items()) {
+        /* foreach (QGraphicsItem *item, scene->items()) {
             if (item->data(ItemType) == BezierCurve) {
                 QVector<QGraphicsItem*> elem(item->children().toVector());
                 QPainterPath path;
@@ -740,10 +776,11 @@ bool FEMainWindow::eventFilter(QObject *o, QEvent *e)
                 path.cubicTo(elem[1]->scenePos(), elem[2]->scenePos(), elem[3]->scenePos());
                 ((QGraphicsPathItem*) item)->setPath(path);
             }
-        }
+        } */
 
-		if (ui->autoGeneratePreview->isChecked())
-			generatePreview();
+        if (ui->autoGeneratePreview->isChecked()) {
+            generatePreview();
+        }
 	} else if (e->type() == QEvent::GraphicsSceneMouseMove) {
 		QGraphicsSceneMouseEvent *ge = (QGraphicsSceneMouseEvent*) e;
 
@@ -961,14 +998,14 @@ QImage FEMainWindow::generateFlowMap()
 	return im;
 }
 
-QPixmap FEMainWindow::fastGenerateFlowMap()
+QImage FEMainWindow::fastGenerateFlowMap()
 {
 	QVector<FE_Element*> elems(this->elems());
 	QProcess p;
 	p.start("qdelaunay", QStringList("Fv") << "Qt");
 	if (!p.waitForStarted()) {
 		QMessageBox::warning(this, "qdelaunay failed", "Failed to start qdelaunay");
-		return QPixmap();
+        return QImage();
 	}
 	p.write(QString("2 rbox %1 D2\r\n").arg(elems.size()).toAscii());
 	p.write(QString("%1\r\n").arg(elems.size()).toAscii());
@@ -983,7 +1020,7 @@ QPixmap FEMainWindow::fastGenerateFlowMap()
 	} */
 	if (!p.waitForFinished()) {
 		QMessageBox::warning(this, "qdelaunay failed", "Timeout reached waiting for finish.");
-		return QPixmap();
+        return QImage();
 	}
 	QByteArray ba(p.readAllStandardOutput());
 	QStringList l(QString(ba).remove("\r").split("\n"));
@@ -997,8 +1034,8 @@ QPixmap FEMainWindow::fastGenerateFlowMap()
 		indices.push_back(v);
 	}
 
-	QImage im(image->pixmap().width(), image->pixmap().height(), QImage::Format_ARGB32);
-	im.fill(0xff000000);
+    QImage im(image->pixmap().width(), image->pixmap().height(), QImage::Format_ARGB32);
+    im.fill(0x00000000);
 
 	foreach (QVector<int> I, indices) {
 
@@ -1016,12 +1053,12 @@ QPixmap FEMainWindow::fastGenerateFlowMap()
 		if (e1->passive()) c1 = (e0->passive() ? c2 : c0);
 		if (e2->passive()) c2 = (e0->passive() ? c1 : c0);
 
-		Draw_Gouraud_Triangle(im, e0->pos().x(), e0->pos().y(), c0.red(), c0.green(), c0.blue(),
-				      e1->pos().x(), e1->pos().y(), c1.red(), c1.green(), c1.blue(),
-				      e2->pos().x(), e2->pos().y(), c2.red(), c2.green(), c2.blue());
+        Draw_Gouraud_Triangle(im, e0->pos().x(), e0->pos().y(), c0.red(), c0.green(), c0.blue(), c0.alpha(),
+                      e1->pos().x(), e1->pos().y(), c1.red(), c1.green(), c1.blue(), c1.alpha(),
+                      e2->pos().x(), e2->pos().y(), c2.red(), c2.green(), c2.blue(), c2.alpha());
 	}
 
-	return QPixmap::fromImage(im);
+    return im; // QPixmap::fromImage(im);
 
 
 	/* glwidget->setElems(elems);
@@ -1050,7 +1087,7 @@ QPixmap FEMainWindow::fastGenerateFlowMap()
 
 void FEMainWindow::generatePreview()
 {
-	QPixmap fm(fastGenerateFlowMap());
+    QPixmap fm(QPixmap::fromImage(renderFinalImage(&FEMainWindow::fastGenerateFlowMap)));
 	previewBtn->setIconSize(QSize(100, 75));
 	previewBtn->setIcon(QIcon(fm));
 	if (previewBtn->isChecked())
@@ -1069,4 +1106,59 @@ QVector<FE_Element*> FEMainWindow::elems()
 	}
 
 	return elems;
+}
+
+QImage FEMainWindow::renderBezierCurves()
+{
+    QImage im(image->pixmap().size(), QImage::Format_ARGB32);
+    im.fill(0x00000000);
+    QPainter p(&im);
+    foreach(QGraphicsItem *item, scene->items()) {
+        if (item->type() == FE_BezierCurve::Type) {
+            ((FE_BezierCurve*) item)->render(&p);
+        }
+    }
+    return im;
+}
+
+QImage FEMainWindow::renderFinalImage(QImage(FEMainWindow::*flowFieldMethod)(), bool useCheckerBoard)
+{
+    if (image->pixmap().isNull())
+        return QImage();
+
+    QImage im;
+    if (useCheckerBoard) {
+        im = checkerBoard();
+    } else {
+        im = QImage(image->pixmap().size(), QImage::Format_ARGB32);
+    }
+    QPainter p(&im);
+    p.drawImage(0, 0, renderBezierCurves());
+    p.drawImage(0, 0, (this->*flowFieldMethod)());
+    return im;
+}
+
+QImage FEMainWindow::checkerBoard()
+{
+    int w = image->pixmap().size().width();
+    int h = image->pixmap().size().height();
+    QImage checkerBoard(w, h, QImage::Format_ARGB32);
+    QPainter p(&checkerBoard);
+    for (int x = 0; x*32 < w; x++) {
+        for (int y = 0; y * 32 < h; y++) {
+            p.fillRect(x * 32, y * 32, 32, 32, ((x % 2) ^ (y % 2)) ? Qt::gray : Qt::white);
+        }
+    }
+    return checkerBoard;
+}
+
+QList<FE_BezierCurve*> FEMainWindow::bezierCurves()
+{
+    QList<FE_BezierCurve*> l;
+    foreach(QGraphicsItem *item, scene->items()) {
+        if (item->type() == FE_BezierCurve::Type) {
+            l.push_back((FE_BezierCurve*) item);
+        }
+    }
+    return l;
 }

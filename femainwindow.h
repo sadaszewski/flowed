@@ -13,10 +13,14 @@ class FE_GLWidget;
 class QPushButton;
 class FE_Element;
 class QArrowCue;
+class FE_BezierCurve;
 
 class FEMainWindow : public QMainWindow
 {
     Q_OBJECT
+
+public:
+    static FEMainWindow* instance();
 
 public:
     explicit FEMainWindow(QWidget *parent = 0);
@@ -37,6 +41,7 @@ public slots:
 	void generateGrid();
 	void generateGradientGrid();
 	void selectGradientBrushColor();
+    void generatePreview();
 
 protected:
 	bool eventFilter(QObject *, QEvent *);
@@ -45,14 +50,18 @@ protected:
 
 private:
 	QImage generateFlowMap();
-	QPixmap fastGenerateFlowMap();
-	void generatePreview();
+    QImage fastGenerateFlowMap();
 	void loadFlowField(const QString&);
 	QImage akimaGenerateFlowMap();
 	QImage nnGenerateFlowMap();
 	QVector<FE_Element*> elems();
+    QImage renderBezierCurves();
+    QImage renderFinalImage(QImage(FEMainWindow::*flowFieldMethod)(), bool useCheckerBoard = true);
+    QImage checkerBoard();
+    QList<FE_BezierCurve*> bezierCurves();
 
 private:
+    static FEMainWindow *m_Instance;
     Ui::FEMainWindow *ui;
     QGraphicsScene *scene;
     QGraphicsPixmapItem *image;

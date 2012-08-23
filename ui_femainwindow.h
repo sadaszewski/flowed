@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'femainwindow.ui'
 **
-** Created: Wed 22. Aug 16:49:03 2012
+** Created: Thu 23. Aug 14:50:26 2012
 **      by: Qt User Interface Compiler version 4.8.2
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -115,6 +115,7 @@ public:
     QLabel *label_14;
     QComboBox *markPassive_mode;
     QWidget *addBezierCurve_page;
+    QWidget *addBezierPoint_page;
 
     void setupUi(QMainWindow *FEMainWindow)
     {
@@ -470,6 +471,9 @@ public:
         addBezierCurve_page = new QWidget();
         addBezierCurve_page->setObjectName(QString::fromUtf8("addBezierCurve_page"));
         toolSettings_widget->addWidget(addBezierCurve_page);
+        addBezierPoint_page = new QWidget();
+        addBezierPoint_page->setObjectName(QString::fromUtf8("addBezierPoint_page"));
+        toolSettings_widget->addWidget(addBezierPoint_page);
 
         verticalLayout_4->addWidget(toolSettings_widget);
 
@@ -497,7 +501,7 @@ public:
         retranslateUi(FEMainWindow);
         QObject::connect(tool_comboBox, SIGNAL(currentIndexChanged(int)), toolSettings_widget, SLOT(setCurrentIndex(int)));
 
-        toolSettings_widget->setCurrentIndex(7);
+        toolSettings_widget->setCurrentIndex(8);
 
 
         QMetaObject::connectSlotsByName(FEMainWindow);
@@ -538,6 +542,7 @@ public:
          << QApplication::translate("FEMainWindow", "Gradient brush", 0, QApplication::UnicodeUTF8)
          << QApplication::translate("FEMainWindow", "Mark passive", 0, QApplication::UnicodeUTF8)
          << QApplication::translate("FEMainWindow", "Add Bezier curve", 0, QApplication::UnicodeUTF8)
+         << QApplication::translate("FEMainWindow", "Add Bezier point", 0, QApplication::UnicodeUTF8)
         );
         label_6->setText(QApplication::translate("FEMainWindow", "Direction:", 0, QApplication::UnicodeUTF8));
         label_9->setText(QApplication::translate("FEMainWindow", "Size:", 0, QApplication::UnicodeUTF8));

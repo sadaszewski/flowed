@@ -44,7 +44,7 @@ void draw_item_along_bezier(QPainter *painter, QGraphicsItem *item, const qreal 
 
 		painter->setTransform(savedTransform);
 		painter->translate(x1, y1);
-		painter->rotate(angle);
+        painter->rotate(angle * 180.0 / M_PI);
 		if (shape && c1.isValid() && c2.isValid()) {
             int r = (1-t1) * c1.red() + t1 * c2.red();
             int g = (1-t1) * c1.green() + t1 * c2.green();
@@ -65,4 +65,6 @@ void draw_item_along_bezier(QPainter *painter, QGraphicsItem *item, const qreal 
 		shape->setBrush(savedBrush);
 		shape->setPen(savedPen);
 	}
+
+    painter->setTransform(savedTransform);
 }

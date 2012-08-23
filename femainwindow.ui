@@ -191,6 +191,11 @@
          <string>Add Bezier curve</string>
         </property>
        </item>
+       <item>
+        <property name="text">
+         <string>Add Bezier point</string>
+        </property>
+       </item>
       </widget>
      </item>
      <item>
@@ -202,7 +207,7 @@
         </sizepolicy>
        </property>
        <property name="currentIndex">
-        <number>7</number>
+        <number>8</number>
        </property>
        <widget class="QWidget" name="flowPoints_page"/>
        <widget class="QWidget" name="gradientPoints_page"/>
@@ -540,6 +545,7 @@
         </layout>
        </widget>
        <widget class="QWidget" name="addBezierCurve_page"/>
+       <widget class="QWidget" name="addBezierPoint_page"/>
       </widget>
      </item>
     </layout>
