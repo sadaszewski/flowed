@@ -11,6 +11,10 @@ FE_GradientElement::FE_GradientElement()
 	m_Passive = false;
 }
 
+FE_GradientElement::~FE_GradientElement() {
+    // delete parentItem();
+}
+
 void FE_GradientElement::setColor(const QColor &c)
 {
 	setPen(QPen(c.darker(), 1, m_Passive ? Qt::DotLine : Qt::SolidLine));

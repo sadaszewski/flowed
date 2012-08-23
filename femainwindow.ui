@@ -30,7 +30,7 @@
      <x>0</x>
      <y>0</y>
      <width>724</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu_File">
@@ -186,6 +186,11 @@
          <string>Mark passive</string>
         </property>
        </item>
+       <item>
+        <property name="text">
+         <string>Add Bezier curve</string>
+        </property>
+       </item>
       </widget>
      </item>
      <item>
@@ -197,7 +202,7 @@
         </sizepolicy>
        </property>
        <property name="currentIndex">
-        <number>6</number>
+        <number>7</number>
        </property>
        <widget class="QWidget" name="flowPoints_page"/>
        <widget class="QWidget" name="gradientPoints_page"/>
@@ -534,6 +539,7 @@
          </item>
         </layout>
        </widget>
+       <widget class="QWidget" name="addBezierCurve_page"/>
       </widget>
      </item>
     </layout>

@@ -13,6 +13,7 @@ public:
 	};
 
 	FE_GradientElement();
+    ~FE_GradientElement();
 
 	void setColor(const QColor&);
 	QColor color() const;

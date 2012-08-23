@@ -15,6 +15,7 @@
 #include <QTimer>
 #include <QColorDialog>
 #include <QInputDialog>
+#include <QPen>
 
 #include <math.h>
 
@@ -42,7 +43,19 @@ enum {
 	GradientCloningTool,
 	EraserTool,
 	GradientBrushTool,
-	MarkPassiveTool
+    MarkPassiveTool,
+    AddBezierCurveTool
+};
+
+// Custom QGraphicsItem properties
+enum {
+    ItemType,
+    PenWidth
+};
+
+// Values for ItemType
+enum {
+    BezierCurve
 };
 
 FEMainWindow::FEMainWindow(QWidget *parent) :
@@ -191,12 +204,12 @@ void FEMainWindow::loadFlowField(const QString& fname)
 		bool passive;
 		ds >> from;
 		ds >> to;
-		ds >> passive;
+        ds >> passive;
 		FE_FlowElement *elem = new FE_FlowElement(scene);
 		elem->getHandleFrom()->setPos(from);
 		elem->getHandleTo()->setPos(to);
 		elem->onEndPositionChanged();
-		elem->setPassive(passive);
+        elem->setPassive(passive);
 	}
 	int gradientElementsCount;
 	ds >> gradientElementsCount;
@@ -206,12 +219,12 @@ void FEMainWindow::loadFlowField(const QString& fname)
 		bool passive;
 		ds >> pos;
 		ds >> color;
-		ds >> passive;
+        ds >> passive;
 		FE_GradientElement *elem = new FE_GradientElement();
 		scene->addItem(elem);
 		elem->setPos(pos);
 		elem->setColor(color);
-		elem->setPassive(passive);
+        elem->setPassive(passive);
 	}
 
 	generatePreview();
@@ -642,8 +655,28 @@ bool FEMainWindow::eventFilter(QObject *o, QEvent *e)
 
 				case GradientBrushTool:
 					return true;
+
+                case AddBezierCurveTool: {
+                        QGraphicsPathItem *pathItem = new QGraphicsPathItem(0, scene);
+                        pathItem->setData(ItemType, BezierCurve);
+                        pathItem->setData(PenWidth, 32);
+                        FE_GradientElement *elem[4];
+                        for (int i = 0; i < 4; i++) {
+                            elem[i] = new FE_GradientElement();
+                            elem[i]->setParentItem(pathItem);
+                            elem[i]->setPos(ge->scenePos() + QPointF(10, 10) * i);
+                            elem[i]->setColor(lastColor);
+                            // elem[i]->setZValue(1);
+                        }
+                        QPainterPath p;
+                        p.moveTo(elem[0]->scenePos());
+                        p.cubicTo(elem[1]->scenePos(), elem[2]->scenePos(), elem[3]->scenePos());
+                        pathItem->setPath(p);
+                        pathItem->setPen(QPen(lastColor, 32));
+                    }
+                    return true;
 				}
-			} else if (ge->button() == Qt::LeftButton && tool() != FlowElementsTool && tool() != GradientElementsTool)  {
+            } else if (ge->button() == Qt::LeftButton && tool() != FlowElementsTool && tool() != GradientElementsTool && tool() != AddBezierCurveTool)  {
 				return true;
 			}
 		} else if (ge->button() == Qt::MidButton && item) {
@@ -698,6 +731,17 @@ bool FEMainWindow::eventFilter(QObject *o, QEvent *e)
 	} else if (e->type() == QEvent::GraphicsSceneMouseRelease) {
 		delete m_ArrowCue;
 		m_ArrowCue = 0;
+
+        foreach (QGraphicsItem *item, scene->items()) {
+            if (item->data(ItemType) == BezierCurve) {
+                QVector<QGraphicsItem*> elem(item->children().toVector());
+                QPainterPath path;
+                path.moveTo(elem[0]->scenePos());
+                path.cubicTo(elem[1]->scenePos(), elem[2]->scenePos(), elem[3]->scenePos());
+                ((QGraphicsPathItem*) item)->setPath(path);
+            }
+        }
+
 		if (ui->autoGeneratePreview->isChecked())
 			generatePreview();
 	} else if (e->type() == QEvent::GraphicsSceneMouseMove) {

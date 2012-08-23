@@ -4,3 +4,5 @@ release/
 akima/
 *.user
 *.zip
+nn-c/
+object_script.*

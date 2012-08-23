@@ -1,8 +1,8 @@
 /********************************************************************************
 ** Form generated from reading UI file 'femainwindow.ui'
 **
-** Created: Thu Aug 16 18:04:24 2012
-**      by: Qt User Interface Compiler version 4.6.2
+** Created: Wed 22. Aug 16:49:03 2012
+**      by: Qt User Interface Compiler version 4.8.2
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
 ********************************************************************************/
@@ -114,6 +114,7 @@ public:
     QSpinBox *markPassive_size;
     QLabel *label_14;
     QComboBox *markPassive_mode;
+    QWidget *addBezierCurve_page;
 
     void setupUi(QMainWindow *FEMainWindow)
     {
@@ -158,7 +159,7 @@ public:
         FEMainWindow->setCentralWidget(centralWidget);
         menuBar = new QMenuBar(FEMainWindow);
         menuBar->setObjectName(QString::fromUtf8("menuBar"));
-        menuBar->setGeometry(QRect(0, 0, 724, 22));
+        menuBar->setGeometry(QRect(0, 0, 724, 21));
         menu_File = new QMenu(menuBar);
         menu_File->setObjectName(QString::fromUtf8("menu_File"));
         menuE_xport_flow_map = new QMenu(menu_File);
@@ -466,6 +467,9 @@ public:
         formLayout_4->setWidget(1, QFormLayout::FieldRole, markPassive_mode);
 
         toolSettings_widget->addWidget(markPassive_page);
+        addBezierCurve_page = new QWidget();
+        addBezierCurve_page->setObjectName(QString::fromUtf8("addBezierCurve_page"));
+        toolSettings_widget->addWidget(addBezierCurve_page);
 
         verticalLayout_4->addWidget(toolSettings_widget);
 
@@ -493,7 +497,7 @@ public:
         retranslateUi(FEMainWindow);
         QObject::connect(tool_comboBox, SIGNAL(currentIndexChanged(int)), toolSettings_widget, SLOT(setCurrentIndex(int)));
 
-        toolSettings_widget->setCurrentIndex(6);
+        toolSettings_widget->setCurrentIndex(7);
 
 
         QMetaObject::connectSlotsByName(FEMainWindow);
@@ -533,6 +537,7 @@ public:
          << QApplication::translate("FEMainWindow", "Eraser", 0, QApplication::UnicodeUTF8)
          << QApplication::translate("FEMainWindow", "Gradient brush", 0, QApplication::UnicodeUTF8)
          << QApplication::translate("FEMainWindow", "Mark passive", 0, QApplication::UnicodeUTF8)
+         << QApplication::translate("FEMainWindow", "Add Bezier curve", 0, QApplication::UnicodeUTF8)
         );
         label_6->setText(QApplication::translate("FEMainWindow", "Direction:", 0, QApplication::UnicodeUTF8));
         label_9->setText(QApplication::translate("FEMainWindow", "Size:", 0, QApplication::UnicodeUTF8));
