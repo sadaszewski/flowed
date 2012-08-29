@@ -67,6 +67,8 @@
     <addaction name="action_Save_flow_field"/>
     <addaction name="menuE_xport_flow_map"/>
     <addaction name="separator"/>
+    <addaction name="actionShow_li_cense"/>
+    <addaction name="separator"/>
     <addaction name="action_Quit"/>
    </widget>
    <addaction name="menu_File"/>
@@ -604,6 +606,11 @@
   <action name="action_Generate_gradient_grid">
    <property name="text">
     <string>Generate g&amp;radient grid</string>
+   </property>
+  </action>
+  <action name="actionShow_li_cense">
+   <property name="text">
+    <string>Show li&amp;cense</string>
    </property>
   </action>
  </widget>

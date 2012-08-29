@@ -33,3 +33,6 @@ LIBS += nn-c/libnn.a \
     -lakima
 QMAKE_CXXFLAGS += -fopenmp
 QMAKE_LFLAGS += -fopenmp
+
+RESOURCES += \
+    flowed.qrc

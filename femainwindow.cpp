@@ -16,6 +16,10 @@
 #include <QColorDialog>
 #include <QInputDialog>
 #include <QPen>
+#include <QSettings>
+#include <QVBoxLayout>
+#include <QTextEdit>
+#include <QDialogButtonBox>
 
 #include <math.h>
 
@@ -89,6 +93,7 @@ FEMainWindow::FEMainWindow(QWidget *parent) :
     connect(ui->action_Generate_grid, SIGNAL(triggered()), this, SLOT(generateGrid()));
     connect(ui->action_Generate_gradient_grid, SIGNAL(triggered()), this, SLOT(generateGradientGrid()));
     connect(ui->gradientBrush_color, SIGNAL(clicked()), this, SLOT(selectGradientBrushColor()));
+    connect(ui->actionShow_li_cense, SIGNAL(triggered()), this, SLOT(showLicense()));
 
     QString ss("padding-left: 30px; font-style: italic;");
     QWidgetAction *a = new QWidgetAction(ui->menuE_xport_flow_map);
@@ -1092,6 +1097,34 @@ void FEMainWindow::generatePreview()
 	previewBtn->setIcon(QIcon(fm));
 	if (previewBtn->isChecked())
 		image->setPixmap(fm);
+}
+
+int FEMainWindow::showLicense() {
+    QSettings s("algoholic.eu", "flowed");
+    int ret;
+    QFile f(":/LICENSE.html");
+    f.open(QFile::ReadOnly);
+    QDialog *d = new QDialog();
+    QVBoxLayout *l = new QVBoxLayout(d);
+    QTextEdit *e = new QTextEdit(d);
+    e->setReadOnly(true);
+    l->addWidget(e);
+    QDialogButtonBox *g = new QDialogButtonBox(d);
+    l->addWidget(g);
+    g->addButton("Accept", QDialogButtonBox::AcceptRole);
+    g->addButton("Reject", QDialogButtonBox::RejectRole);
+    QObject::connect(g, SIGNAL(accepted()), d, SLOT(accept()));
+    QObject::connect(g, SIGNAL(rejected()), d, SLOT(reject()));
+    e->setText(QString::fromUtf8(f.readAll()));
+    d->setWindowTitle("Flow Editor License Agreement");
+    d->setMinimumWidth(640);
+    d->setMinimumHeight(480);
+    ret = d->exec();
+    s.setValue("license_accepted", ret == QDialog::Accepted);
+    delete d;
+    if (ret == QDialog::Rejected)
+        qApp->quit();
+    return ret;
 }
 
 QVector<FE_Element*> FEMainWindow::elems()

@@ -17,7 +17,8 @@ FE_GradientElement::~FE_GradientElement() {
 
 void FE_GradientElement::setColor(const QColor &c)
 {
-	setPen(QPen(c.darker(), 1, m_Passive ? Qt::DotLine : Qt::SolidLine));
+    QColor d(c.darker().rgb());
+    setPen(QPen(d, 1, m_Passive ? Qt::DotLine : Qt::SolidLine));
 	setBrush(c);
 }
 
@@ -30,7 +31,7 @@ void FE_GradientElement::setPassive(bool p)
 {
 	m_Passive = p;
 
-	setPen(QPen(brush().color().darker(), 1, p ? Qt::DotLine : Qt::SolidLine));
+    setPen(QPen(QColor(brush().color().darker().rgb()), 1, p ? Qt::DotLine : Qt::SolidLine));
 }
 
 bool FE_GradientElement::passive() const

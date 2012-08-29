@@ -42,6 +42,7 @@ public slots:
 	void generateGradientGrid();
 	void selectGradientBrushColor();
     void generatePreview();
+    int showLicense();
 
 protected:
 	bool eventFilter(QObject *, QEvent *);

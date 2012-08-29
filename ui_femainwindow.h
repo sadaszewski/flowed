@@ -1,7 +1,7 @@
 /********************************************************************************
 ** Form generated from reading UI file 'femainwindow.ui'
 **
-** Created: Thu 23. Aug 14:50:26 2012
+** Created: Wed 29. Aug 17:38:57 2012
 **      by: Qt User Interface Compiler version 4.8.2
 **
 ** WARNING! All changes made in this file will be lost when recompiling UI file!
@@ -50,6 +50,7 @@ public:
     QAction *action_Flow_field;
     QAction *action_Project;
     QAction *action_Generate_gradient_grid;
+    QAction *actionShow_li_cense;
     QWidget *centralWidget;
     QHBoxLayout *horizontalLayout;
     QGraphicsView *graphicsView;
@@ -144,6 +145,8 @@ public:
         action_Project->setObjectName(QString::fromUtf8("action_Project"));
         action_Generate_gradient_grid = new QAction(FEMainWindow);
         action_Generate_gradient_grid->setObjectName(QString::fromUtf8("action_Generate_gradient_grid"));
+        actionShow_li_cense = new QAction(FEMainWindow);
+        actionShow_li_cense->setObjectName(QString::fromUtf8("actionShow_li_cense"));
         centralWidget = new QWidget(FEMainWindow);
         centralWidget->setObjectName(QString::fromUtf8("centralWidget"));
         horizontalLayout = new QHBoxLayout(centralWidget);
@@ -486,6 +489,8 @@ public:
         menu_File->addAction(action_Save_flow_field);
         menu_File->addAction(menuE_xport_flow_map->menuAction());
         menu_File->addSeparator();
+        menu_File->addAction(actionShow_li_cense);
+        menu_File->addSeparator();
         menu_File->addAction(action_Quit);
         menuE_xport_flow_map->addAction(action_Export_flow_map_fast);
         menuE_xport_flow_map->addAction(actionExport_flow_map_AKIMA);
@@ -521,6 +526,7 @@ public:
         action_Flow_field->setText(QApplication::translate("FEMainWindow", "&Flow field", 0, QApplication::UnicodeUTF8));
         action_Project->setText(QApplication::translate("FEMainWindow", "&Project", 0, QApplication::UnicodeUTF8));
         action_Generate_gradient_grid->setText(QApplication::translate("FEMainWindow", "Generate g&radient grid", 0, QApplication::UnicodeUTF8));
+        actionShow_li_cense->setText(QApplication::translate("FEMainWindow", "Show li&cense", 0, QApplication::UnicodeUTF8));
         menu_File->setTitle(QApplication::translate("FEMainWindow", "&File", 0, QApplication::UnicodeUTF8));
         menuE_xport_flow_map->setTitle(QApplication::translate("FEMainWindow", "E&xport flow map", 0, QApplication::UnicodeUTF8));
         menu_New->setTitle(QApplication::translate("FEMainWindow", "&New", 0, QApplication::UnicodeUTF8));
