@@ -1,6 +1,7 @@
 #include <QGraphicsItem>
 #include <QStyleOptionGraphicsItem>
 #include <QPainter>
+#include <QVector2D>
 #include <math.h>
 
 static void bezier_point(const qreal x[], const qreal y[], qreal t, qreal &xout, qreal &yout) {
@@ -46,15 +47,24 @@ void draw_item_along_bezier(QPainter *painter, QGraphicsItem *item, const qreal 
 		painter->translate(x1, y1);
         painter->rotate(angle * 180.0 / M_PI);
 		if (shape && c1.isValid() && c2.isValid()) {
-            int r = (1-t1) * c1.red() + t1 * c2.red();
-            int g = (1-t1) * c1.green() + t1 * c2.green();
-            int b = (1-t1) * c1.blue() + t1 * c2.blue();
-			QColor c(r, g, b);
+            QColor c(Qt::black);
+            if (c1.alpha() == 0 && c2.alpha() == 0) {
+                QVector2D v(dx, dy);
+                v.normalize();
+
+                c.setRedF((v.x() + 1) / 2);
+                c.setGreenF((v.y() + 1) / 2);
+            } else {
+                int r = (1-t1) * c1.red() + t1 * c2.red();
+                int g = (1-t1) * c1.green() + t1 * c2.green();
+                int b = (1-t1) * c1.blue() + t1 * c2.blue();
+                c = QColor(r, g, b);
+            }
 			
 			QBrush brush(savedBrush);
 			brush.setColor(c);
 			QPen pen(savedPen);
-			pen.setColor(c);
+            pen.setColor(c);
 			shape->setBrush(brush);
 			shape->setPen(pen);
 		}
@@ -67,4 +77,8 @@ void draw_item_along_bezier(QPainter *painter, QGraphicsItem *item, const qreal 
 	}
 
     painter->setTransform(savedTransform);
+}
+
+void draw_flow_along_bezier(QPainter *painter, QGraphicsItem *item, const qreal x[], const qreal y[], int steps) {
+
 }

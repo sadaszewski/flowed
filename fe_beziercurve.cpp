@@ -111,7 +111,7 @@ bool FE_BezierCurve::sceneEventFilter(QGraphicsItem *watched, QEvent *event)
 
         if (((QGraphicsSceneMouseEvent*) event)->button() == Qt::MiddleButton) {
             if (m_Points.indexOf((QGraphicsEllipseItem*) watched) % 3 == 0) {
-                QColor c = QColorDialog::getColor(((QGraphicsEllipseItem*) watched)->brush().color());
+                QColor c = QColorDialog::getColor(((QGraphicsEllipseItem*) watched)->brush().color(), 0, "Pick color", QColorDialog::ShowAlphaChannel);
                 if (c.isValid()) {
                     updateColor((QAbstractGraphicsShapeItem*) watched, c);
                 }
@@ -183,5 +183,5 @@ void FE_BezierCurve::updatePaths()
 void FE_BezierCurve::updateColor(QAbstractGraphicsShapeItem *item, const QColor &c)
 {
     item->setBrush(QBrush(c));
-    item->setPen(QPen(c.darker()));
+    item->setPen(QPen(c.darker().rgb()));
 }
