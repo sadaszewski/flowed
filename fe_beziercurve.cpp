@@ -17,7 +17,7 @@ FE_BezierCurve* FE_BezierCurve::lastCurve()
 }
 
 FE_BezierCurve::FE_BezierCurve(const QPointF &pt, QGraphicsScene *scene):
-    QGraphicsItemGroup(0, scene)
+    QGraphicsItemGroup(0)
 {
     m_Bezier = new QGraphicsPathItem(this);
     m_Segments = new QGraphicsPathItem(this);
@@ -33,6 +33,8 @@ FE_BezierCurve::FE_BezierCurve(const QPointF &pt, QGraphicsScene *scene):
 
     m_LastCurve = this;
     m_Width = 5;
+
+    scene->addItem(this);
 }
 
 FE_BezierCurve::~FE_BezierCurve()
@@ -151,7 +153,7 @@ bool FE_BezierCurve::sceneEventFilter(QGraphicsItem *watched, QEvent *event)
 
 QGraphicsEllipseItem* FE_BezierCurve::newPoint(const QPointF &pt, const QColor &c)
 {
-    QGraphicsEllipseItem *p = new QGraphicsEllipseItem(-5, -5, 10, 10, 0, scene());
+    QGraphicsEllipseItem *p = scene()->addEllipse(-5, -5, 10, 10);
     updateColor(p, c);
     p->setFlags(p->flags() | QGraphicsItem::ItemIsMovable);
     p->setPos(p->mapToParent(p->mapFromScene(pt)));

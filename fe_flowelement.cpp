@@ -34,9 +34,9 @@ FE_FlowElement::FE_FlowElement(QGraphicsScene *s):
 	handleTo = new FE_FlowElementHandle(-4, -4, 8, 8, this);
 	handleMiddle = new FE_FlowElementHandle(-4, -4, 8, 8, this);
 
-	line1 = new QGraphicsLineItem(0, s);
-	line2 = new QGraphicsLineItem(0, s);
-	line3 = new QGraphicsLineItem(0, s);
+    line1 = s->addLine(QLineF()); // new QGraphicsLineItem(QLineF(), s);
+    line2 = s->addLine(QLineF()); // new QGraphicsLineItem(QLineF(), s);
+    line3 = s->addLine(QLineF()); // new QGraphicsLineItem(QLineF(), s);
 
 	// ellipse = new QGraphicsEllipseItem(0, s);
 

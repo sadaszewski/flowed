@@ -2,7 +2,8 @@
 # Project created by QtCreator 2012-03-21T13:54:25
 # -------------------------------------------------
 QT += core \
-    gui
+    gui \
+    widgets
     # opengl
 # CONFIG += debug
 TARGET = flowed
@@ -27,12 +28,16 @@ HEADERS += femainwindow.h \
     fe_beziercurve.h
 FORMS += femainwindow.ui
 INCLUDEPATH += nn-c/
-LIBS += nn-c/libnn.a \
-    -lgfortran \
-    -Lakima/src \
-    -lakima
-QMAKE_CXXFLAGS += -fopenmp
-QMAKE_LFLAGS += -fopenmp
+LIBS += nn-c/libnn.a
+#     -lgfortran \
+#    -Lakima/src
+#    -lakima
+# QMAKE_CXXFLAGS += -fopenmp
+# QMAKE_LFLAGS += -fopenmp
+QMAKE_LFLAGS += /Users/sadaszewski/Downloads/akima/src/akima.new.o \
+/Users/sadaszewski/Downloads/akima/src/tripack.o \
+/opt/local/lib/gcc5/libgfortran.a
+
 
 RESOURCES += \
     flowed.qrc

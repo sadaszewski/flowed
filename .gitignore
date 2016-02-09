@@ -6,3 +6,11 @@ akima/
 *.zip
 nn-c/
 object_script.*
+*.o
+moc_*
+ui_*
+qrc_*
+*.pro.user*
+.DS_Store
+flowed.app/
+flowed.git.rar

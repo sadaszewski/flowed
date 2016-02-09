@@ -20,6 +20,8 @@
 #include <QVBoxLayout>
 #include <QTextEdit>
 #include <QDialogButtonBox>
+#include <QAction>
+#include <QDir>
 
 #include <math.h>
 
@@ -132,7 +134,11 @@ FEMainWindow::FEMainWindow(QWidget *parent) :
 
     connect(previewBtn, SIGNAL(toggled(bool)), this, SLOT(bigPreview(bool)));
     connect(ui->expAndSwitchBtn, SIGNAL(clicked()), this, SLOT(expAndSwitch()));
+//#ifdef __APPLE__
+//    ui->actionExport_flow_map_AKIMA->deleteLater();
+//#else
     connect(ui->actionExport_flow_map_AKIMA, SIGNAL(triggered()), this, SLOT(exportFlowmapAkima()));
+//#endif
 
     lastColor = Qt::gray;
     lastWaveSize = 0;
@@ -279,6 +285,7 @@ void sdsf3p_(int *MD, int *NDP, double *XD, double *YD, double *ZD, int *NXI,
 
 QImage FEMainWindow::akimaGenerateFlowMap()
 {
+//#ifndef __APPLE__
 	QVector<FE_Element*> elems(this->elems());
 	if (elems.size() < 10) {
 		QMessageBox::warning(this, "AKIMA", "AKIMA Cubic Interpolation requires at least 10 points");
@@ -394,6 +401,7 @@ QImage FEMainWindow::akimaGenerateFlowMap()
 	delete [] DIST;
 
 	return im;
+//#endif
 }
 
 QImage FEMainWindow::nnGenerateFlowMap()
@@ -633,8 +641,8 @@ void FEMainWindow::selectGradientBrushColor()
 bool FEMainWindow::eventFilter(QObject *o, QEvent *e)
 {
 	if (e->type() == QEvent::GraphicsSceneMousePress) {
-		QGraphicsSceneMouseEvent *ge = (QGraphicsSceneMouseEvent*) e;
-		QGraphicsItem *item = scene->itemAt(ge->scenePos());
+        QGraphicsSceneMouseEvent *ge = (QGraphicsSceneMouseEvent*) e;
+        QGraphicsItem *item = scene->itemAt(ge->scenePos(), QTransform());
 
 		if (ui->tools_dockWidget->isFloating())
 			ui->tools_dockWidget->hide();
@@ -1007,15 +1015,15 @@ QImage FEMainWindow::fastGenerateFlowMap()
 {
 	QVector<FE_Element*> elems(this->elems());
 	QProcess p;
-	p.start("qdelaunay", QStringList("Fv") << "Qt");
+    p.start(QDir(QApplication::applicationDirPath()).absoluteFilePath("qdelaunay"), QStringList("Fv") << "Qt");
 	if (!p.waitForStarted()) {
 		QMessageBox::warning(this, "qdelaunay failed", "Failed to start qdelaunay");
         return QImage();
 	}
-	p.write(QString("2 rbox %1 D2\r\n").arg(elems.size()).toAscii());
-	p.write(QString("%1\r\n").arg(elems.size()).toAscii());
+    p.write(QString("2 rbox %1 D2\r\n").arg(elems.size()).toLatin1());
+    p.write(QString("%1\r\n").arg(elems.size()).toLatin1());
 	foreach (FE_Element *e, elems) {
-		p.write(QString("%1 %2\r\n").arg(e->pos().x()).arg(e->pos().y()).toAscii());
+        p.write(QString("%1 %2\r\n").arg(e->pos().x()).arg(e->pos().y()).toLatin1());
 		p.waitForBytesWritten();
 	}
 	p.closeWriteChannel();
